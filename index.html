@@ -149,6 +149,12 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);outline:none}
 .tag{background:var(--pink);color:#fff;border-radius:99px;padding:3px 10px;font-size:14px;font-weight:800}
 .delta{color:#7ee36b;font-size:15px}
 .opt.tally{cursor:default}
+.wstatus{display:flex;flex-direction:column;gap:12px;background:rgba(255,255,255,.07);border-radius:18px;padding:14px}
+.wgroup{display:flex;flex-direction:column;gap:8px}
+.wlabel{font-weight:800;font-size:15px}
+.wstatus .chips{justify-content:flex-start}
+.wstatus .chip{padding:7px 12px;font-size:14px;animation:none}
+.chip.mechip{outline:3px solid #fff}
 body{transition:background-color .4s}
 body[data-mode="vote"]{background:radial-gradient(circle at 50% 0%,#0f6b6f 0,transparent 60%),#0b3140;background-attachment:fixed}
 body[data-mode="fight"]{background:radial-gradient(circle at 50% 0%,#8a1456 0,transparent 60%),#3b0a2a;background-attachment:fixed}
@@ -376,7 +382,7 @@ function drawMe(){
   const el = document.getElementById('me');
   if (!el || !H.me || !H.me.view) return;
   const v = H.me.view;
-  const key = JSON.stringify(Object.assign({}, v, {left:0}));
+  const key = viewKey(v);
   if (el.dataset.key === key) return;
   el.dataset.key = key;
   el.innerHTML = `<div class="mehead"><span class="dot" style="background:${v.color}"></span>Tu: ${esc(v.name)}<span class="pscore">${v.score} pt</span></div>`
@@ -388,8 +394,8 @@ function drawHP(){
   const el = document.getElementById('hp');
   if (!el || !H.me || !H.me.view) return;
   const v = H.me.view;
-  const key = JSON.stringify(Object.assign({}, v, {left:0}));
-  if (el.dataset.key === key) return;
+  const key = viewKey(v);
+  if (el.dataset.key === key){ updStatus(el, v); return; }
   el.dataset.key = key;
   el.innerHTML = `<div class="ptop"><span class="dot" style="background:${v.color}"></span><b>👑 ${esc(v.name)}</b><span class="pill" style="margin-left:6px">Stanza ${H.code}</span><span class="pscore">${v.score} pt</span></div>`
                + playerBody(v, false);
@@ -492,7 +498,7 @@ function hostMsg(conn, d){
     for (let i = 0; i < n; i++) parts.push(String((d.parts || [])[i] || '').trim().slice(0, 45));
     if (parts.every(x => !x)) return;
     m.answers[p.id] = parts.map(x => x || '…');
-    sendView(p); renderHost(); checkProgress();
+    broadcast(); renderHost(); checkProgress();
   }
   else if (d.t === 'vote' && H.phase === 'vote'){
     const m = cur();
@@ -689,8 +695,10 @@ function viewFor(p){
     case 'answer': {
       const mine = H.matchups.map((m, i) => ({m, i})).filter(x => x.m.players.includes(p.id));
       const todo = mine.filter(x => !x.m.answers[p.id]);
-      if (!todo.length) return W('✅', 'Fatto!', 'Aspetta che finiscano gli altri…');
-      return Object.assign(v, {type:'answer', prompts: todo.map(x => ({mid:x.i, text:x.m.prompt})), done: mine.length - todo.length, tot: mine.length});
+      const status = H.players.map(x => ({name:x.name, color:x.color, host:!!x.host, me:x.id === p.id, off:!x.connected,
+        done: H.matchups.every(m => !m.players.includes(x.id) || m.answers[x.id])}));
+      if (!todo.length) return Object.assign(W('✅', 'Fatto!', 'Aspetta che finiscano gli altri…'), {status});
+      return Object.assign(v, {type:'answer', prompts: todo.map(x => ({mid:x.i, text:x.m.prompt})), done: mine.length - todo.length, tot: mine.length, status});
     }
     case 'vote': {
       const m = cur();
@@ -1047,10 +1055,23 @@ function playerMsg(d, to){
   if (d.t === 'view') renderPlayer(d.v);
 }
 
+function statusInner(st){
+  const chipS = x => `<span class="chip ${x.off ? 'off' : ''} ${x.me ? 'mechip' : ''}" style="background:${x.color}">${x.host ? '👑 ' : ''}${esc(x.name)}${x.me ? ' (tu)' : ''}</span>`;
+  const writing = st.filter(x => !x.done), done = st.filter(x => x.done);
+  return `<div class="wgroup"><div class="wlabel">✍️ Stanno scrivendo (${writing.length})</div>
+      <div class="chips">${writing.length ? writing.map(chipS).join('') : '<span class="muted small">Nessuno, tutti hanno finito!</span>'}</div></div>
+    <div class="wgroup"><div class="wlabel">✅ Hanno finito (${done.length})</div>
+      <div class="chips">${done.length ? done.map(chipS).join('') : '<span class="muted small">Ancora nessuno…</span>'}</div></div>`;
+}
+const statusBlock = v => v.status ? `<div class="wstatus" data-status>${statusInner(v.status)}</div>` : '';
+// aggiorna solo il riquadro "chi sta scrivendo" senza toccare i campi di testo
+function updStatus(root, v){ const el = root.querySelector('[data-status]'); if (el && v.status) el.innerHTML = statusInner(v.status); }
+const viewKey = v => JSON.stringify(Object.assign({}, v, {left:0, status:0}));
+
 function playerBody(v, panel){
   if (v.type === 'wait'){
     if (panel) return `<div class="mewait"><span class="emoji">${v.emoji || '👀'}</span><div><b>${esc(v.title)}</b><br><span class="muted" style="color:#6b5b9a">${esc(v.msg || '')}</span></div></div>`;
-    return `<div class="grow"><div class="emoji">${v.emoji || '👀'}</div><h2 style="font-size:28px">${esc(v.title)}</h2><p class="lead">${esc(v.msg || '')}</p></div>`;
+    return `<div class="grow"><div class="emoji">${v.emoji || '👀'}</div><h2 style="font-size:28px">${esc(v.title)}</h2><p class="lead">${esc(v.msg || '')}</p>${v.status ? timerHTML() : ''}</div>${statusBlock(v)}`;
   }
   if (v.type === 'answer'){
     const q = v.prompts[0], n = Math.max(1, blanks(q.text));
@@ -1059,7 +1080,8 @@ function playerBody(v, panel){
       <div class="${panel ? '' : 'card'}"><div class="prompt" data-prev>${fill(q.text)}</div></div>
       <div class="inputs">${Array.from({length:n}, (_, i) =>
         `<input class="ans" maxlength="45" autocomplete="off" enterkeyhint="${i === n-1 ? 'send' : 'next'}" placeholder="${n > 1 ? 'Buco ' + (i+1) : 'La tua risposta'}">`).join('')}</div>
-      <button class="btn big" data-send>Invia</button>`;
+      <button class="btn big" data-send>Invia</button>
+      ${panel ? '' : statusBlock(v)}`;
   }
   if (v.type === 'lobby'){
     return `<div class="grow"><div class="emoji">🎉</div><h2 style="font-size:28px">Sei dentro!</h2>
@@ -1157,8 +1179,8 @@ function wirePlayer(root, v, sendFn){
 
 function renderPlayer(v){
   P.localEnd = v.left ? Date.now() + v.left : 0; P.total = v.total || 0;
-  const key = JSON.stringify(Object.assign({}, v, {left:0}));
-  if (key === P.lastKey) return;
+  const key = viewKey(v);
+  if (key === P.lastKey){ updStatus(app, v); return; }
   P.lastKey = key;
   const top = `<div class="ptop"><span class="dot" style="background:${v.color}"></span><b>${esc(v.name)}</b><span class="pscore">${v.score} pt</span></div>`;
   app.innerHTML = `<div class="screen phone">${top}${playerBody(v, false)}</div>`;
