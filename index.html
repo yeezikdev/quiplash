@@ -151,6 +151,19 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);outline:none}
 .opt.tally{cursor:default}
 .wstatus{display:flex;flex-direction:column;gap:12px;background:rgba(255,255,255,.07);border-radius:18px;padding:14px}
 .wgroup{display:flex;flex-direction:column;gap:8px}
+.wstatus{gap:8px}
+.wsum{font-weight:800;font-size:15px;text-align:center;margin-bottom:4px}
+.wrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;font-weight:700;font-size:16px}
+.wrow.writing{background:rgba(255,210,63,.14)}
+.wrow.done{background:rgba(126,227,107,.16)}
+.wrow.me{outline:2px solid rgba(255,255,255,.6)}
+.wname{flex:1;min-width:0;overflow-wrap:anywhere}
+.wstate{font-size:14px;white-space:nowrap}
+.wrow.done .wstate{color:#9ef08c}
+.wrow.writing .wstate{color:var(--yellow)}
+.dots i{font-style:normal;animation:blink 1.2s infinite}
+.dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,100%{opacity:.2}50%{opacity:1}}
 .wlabel{font-weight:800;font-size:15px}
 .wstatus .chips{justify-content:flex-start}
 .wstatus .chip{padding:7px 12px;font-size:14px;animation:none}
@@ -696,7 +709,9 @@ function viewFor(p){
       const mine = H.matchups.map((m, i) => ({m, i})).filter(x => x.m.players.includes(p.id));
       const todo = mine.filter(x => !x.m.answers[p.id]);
       const status = H.players.map(x => ({name:x.name, color:x.color, host:!!x.host, me:x.id === p.id, off:!x.connected,
-        done: H.matchups.every(m => !m.players.includes(x.id) || m.answers[x.id])}));
+        done: H.matchups.every(m => !m.players.includes(x.id) || m.answers[x.id]),
+        n: H.matchups.filter(m => m.players.includes(x.id) && m.answers[x.id]).length,
+        tot: H.matchups.filter(m => m.players.includes(x.id)).length}));
       if (!todo.length) return Object.assign(W('✅', 'Fatto!', 'Aspetta che finiscano gli altri…'), {status});
       return Object.assign(v, {type:'answer', prompts: todo.map(x => ({mid:x.i, text:x.m.prompt})), done: mine.length - todo.length, tot: mine.length, status});
     }
@@ -1056,12 +1071,15 @@ function playerMsg(d, to){
 }
 
 function statusInner(st){
-  const chipS = x => `<span class="chip ${x.off ? 'off' : ''} ${x.me ? 'mechip' : ''}" style="background:${x.color}">${x.host ? '👑 ' : ''}${esc(x.name)}${x.me ? ' (tu)' : ''}</span>`;
   const writing = st.filter(x => !x.done), done = st.filter(x => x.done);
-  return `<div class="wgroup"><div class="wlabel">✍️ Stanno scrivendo (${writing.length})</div>
-      <div class="chips">${writing.length ? writing.map(chipS).join('') : '<span class="muted small">Nessuno, tutti hanno finito!</span>'}</div></div>
-    <div class="wgroup"><div class="wlabel">✅ Hanno finito (${done.length})</div>
-      <div class="chips">${done.length ? done.map(chipS).join('') : '<span class="muted small">Ancora nessuno…</span>'}</div></div>`;
+  const row = x => `<div class="wrow ${x.done ? 'done' : 'writing'} ${x.me ? 'me' : ''}">
+      <span class="dot" style="background:${x.color}"></span>
+      <span class="wname">${x.host ? '👑 ' : ''}${esc(x.name)}${x.me ? ' (tu)' : ''}</span>
+      <span class="wstate">${x.off ? '📡 disconnesso' : x.done ? '✅ ha finito'
+        : `✍️ sta scrivendo${x.tot > 1 ? ` · ${x.n}/${x.tot} frasi` : ''}<span class="dots"><i>.</i><i>.</i><i>.</i></span>`}</span>
+    </div>`;
+  return `<div class="wsum">✍️ ${writing.length} stanno scrivendo · ✅ ${done.length} hanno finito</div>
+    ${writing.map(row).join('')}${done.map(row).join('')}`;
 }
 const statusBlock = v => v.status ? `<div class="wstatus" data-status>${statusInner(v.status)}</div>` : '';
 // aggiorna solo il riquadro "chi sta scrivendo" senza toccare i campi di testo
