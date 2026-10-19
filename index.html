@@ -128,6 +128,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);outline:none}
 .bbar div{height:100%;border-radius:99px;transition:width .8s}
 @media (max-width:600px){.brow{grid-template-columns:30px 1fr 80px}.bbar{display:none}}
 
+.mebox{background:#fff;color:var(--ink);border-radius:22px;padding:18px;width:100%;max-width:640px;margin:0 auto;text-align:left;
+  display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 30px rgba(0,0,0,.3)}
+.mebox:empty{display:none}
+.mehead{display:flex;align-items:center;gap:10px;font-weight:800}
+.mehead .pscore{color:var(--ink)}
+.mebox .prompt{font-size:20px}
+.mewait{display:flex;align-items:center;gap:12px;font-size:18px}
+.mewait .emoji{font-size:36px;animation:none}
+.acard.pick{cursor:pointer;transition:transform .12s}
+.acard.pick:hover{transform:translateY(-4px)}
+.acard.sel{box-shadow:0 0 0 6px var(--pink),0 20px 50px rgba(0,0,0,.5)}
 .spinner{width:56px;height:56px;border:6px solid rgba(255,255,255,.2);border-top-color:var(--yellow);border-radius:50%;animation:spin 1s linear infinite}
 .shake{animation:shake .35s}
 
@@ -268,7 +279,7 @@ function home(){
       </ol>
     </div>
   </div>`;
-  $('#bHost').onclick = hostStart;
+  $('#bHost').onclick = hostSetup;
   $('#bJoin').onclick = () => joinScreen();
 }
 
@@ -281,7 +292,50 @@ const H = {
 
 function genCode(){ const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let c = ''; for (let i = 0; i < 4; i++) c += L[Math.floor(Math.random()*L.length)]; return c; }
 
-function hostStart(){
+function hostSetup(){
+  MODE = null;
+  app.innerHTML = `<div class="screen phone center">
+    <h1 class="logo sm">TAPPA<span>BUCHI</span></h1>
+    <div class="card form">
+      <h3>Crea una partita</h3>
+      <label>Il tuo nome<input id="hname" maxlength="16" autocomplete="off" value="${esc(load('tb_name'))}" placeholder="Es. Pietro"></label>
+      <button class="btn big" id="hgo">Crea la stanza e gioca</button>
+      <p class="muted small" style="margin:0">Giocherai da questo dispositivo: rispondi e voti direttamente qui.</p>
+    </div>
+    <button class="link" id="honly">Usa solo come schermo (non gioco)</button>
+    <button class="link" id="hback">← Indietro</button></div>`;
+  const go = () => {
+    const n = $('#hname').value.trim();
+    if (!n){ $('#hname').classList.add('shake'); setTimeout(() => $('#hname') && $('#hname').classList.remove('shake'), 400); $('#hname').focus(); return; }
+    store('tb_name', n); hostStart(n);
+  };
+  $('#hgo').onclick = go;
+  $('#hname').onkeydown = e => { if (e.key === 'Enter') go(); };
+  $('#honly').onclick = () => hostStart('');
+  $('#hback').onclick = home;
+  $('#hname').focus();
+}
+
+/* L'host che gioca usa una "connessione" locale: passa per gli stessi messaggi dei telefoni. */
+const LOCAL = {open:true, peer:'local', send: m => localRecv(m)};
+function localRecv(m){
+  if (!H.me) return;
+  if (m.t === 'joined'){ const p = H.players.find(x => x.conn === LOCAL); if (p){ p.host = true; H.me.id = p.id; } }
+  else if (m.t === 'view'){ H.me.view = m.v; drawMe(); }
+}
+function drawMe(){
+  const el = document.getElementById('me');
+  if (!el || !H.me || !H.me.view) return;
+  const v = H.me.view;
+  const key = JSON.stringify(Object.assign({}, v, {left:0}));
+  if (el.dataset.key === key) return;
+  el.dataset.key = key;
+  el.innerHTML = `<div class="mehead"><span class="dot" style="background:${v.color}"></span>Tu: ${esc(v.name)}<span class="pscore">${v.score} pt</span></div>`
+               + playerBody(v, true);
+  wirePlayer(el, v, d => hostMsg(LOCAL, d));
+}
+
+function hostStart(myName){
   if (typeof Peer === 'undefined') return showError('Impossibile caricare la libreria di rete. Controlla la connessione.');
   MODE = 'host';
   app.innerHTML = spinner('Creo la stanza…');
@@ -290,13 +344,15 @@ function hostStart(){
   let opened = false;
   peer.on('open', () => {
     opened = true; H.peer = peer; H.code = code; H.phase = 'lobby';
+    H.me = myName ? {id:null, view:null} : null;
+    if (myName) hostMsg(LOCAL, {t:'join', name:myName});
     renderHost(true); wake();
     window.onbeforeunload = () => 'Uscendo chiudi la partita per tutti.';
   });
   peer.on('connection', onConn);
   peer.on('disconnected', () => { try { peer.reconnect(); } catch(e){} });
   peer.on('error', e => {
-    if (e.type === 'unavailable-id' && !opened){ peer.destroy(); hostStart(); }
+    if (e.type === 'unavailable-id' && !opened){ peer.destroy(); hostStart(myName); }
     else if (!opened) showError('Errore di rete (' + e.type + '). Riprova.');
     else console.warn(e);
   });
@@ -542,7 +598,7 @@ function renderHost(force){
   (VIEW[H.phase] || (() => {}))();
 }
 const chip = (p, extra = '', off = !p.connected) =>
-  `<span class="chip ${off ? 'off' : ''}" style="background:${p.color}">${esc(p.name)}${extra ? ' ' + extra : ''}</span>`;
+  `<span class="chip ${off ? 'off' : ''}" style="background:${p.color}">${p.host ? '👑 ' : ''}${esc(p.name)}${extra ? ' ' + extra : ''}</span>`;
 const roundLabel = () => H.round < 3 ? 'Round ' + H.round + ' di 3' : 'Round finale';
 const hdr = () => `<div class="hdr"><span class="pill">${roundLabel()}</span><span class="pill">Stanza ${H.code}</span></div>`;
 const joinUrl = () => location.origin + location.pathname + '?room=' + H.code;
@@ -600,17 +656,18 @@ UPD.intro = () => {};
 VIEW.answer = () => {
   app.innerHTML = `<div class="screen host center">${hdr()}
     <div class="grow">
-      <h2 class="huge">${H.round < 3 ? 'Prendi il telefono!' : 'Frase finale!'}</h2>
+      <h2 class="huge">${H.round < 3 ? (H.me ? 'Tutti a scrivere!' : 'Prendi il telefono!') : 'Frase finale!'}</h2>
       <p class="lead">${H.round < 3
         ? 'Hai 2 frasi da completare. Ogni frase ce l\'ha anche un altro giocatore: sii più divertente di lui.'
         : 'Tutti rispondono alla stessa frase. Poi si vota la migliore (non puoi votare la tua).'}</p>
-      ${H.round === 3 ? `<div class="prompt big">${fill(cur0().prompt)}</div>` : ''}
+      ${H.round === 3 && !H.me ? `<div class="prompt big">${fill(cur0().prompt)}</div>` : ''}
       ${timerHTML()}
+      ${H.me ? '<div id="me" class="mebox"></div>' : ''}
       <div id="astatus" class="chips"></div>
     </div>
     <button class="btn small ghost" id="skip">Chiudi le risposte</button></div>`;
   $('#skip').onclick = endAnswer;
-  UPD.answer();
+  UPD.answer(); drawMe();
 };
 const cur0 = () => H.matchups[0];
 UPD.answer = () => {
@@ -623,7 +680,7 @@ UPD.answer = () => {
 function card(m, id, rev, i){
   const p = byId(id), r = m.R && m.R[id];
   const color = p ? p.color : '#fff';
-  return `<div class="acard ${rev && isWinner(m, id) ? 'win' : ''}" style="--c:${color};animation-delay:${i*0.15}s">
+  return `<div class="acard ${rev && isWinner(m, id) ? 'win' : ''}" data-id="${esc(id)}" style="--c:${color};animation-delay:${i*0.15}s">
     <div>${fill(m.prompt, m.answers[id])}</div>
     ${rev && r ? `<div class="ameta">
       <span class="aname" style="background:${color}">${esc(p ? p.name : '?')}</span>
@@ -644,12 +701,26 @@ VIEW.vote = () => {
   app.innerHTML = `<div class="screen host">${hdr()}
     <div class="prompt big">${fill(m.prompt)}</div>
     ${cardsHTML(m, answered(m), false)}
-    <p class="lead" style="text-align:center">Votate dal telefono la risposta migliore!</p>
+    <p class="lead" style="text-align:center">Votate la risposta migliore!</p>
+    ${H.me ? '<div id="me" class="mebox"></div>' : ''}
     ${timerHTML()}
     <div class="row between"><span id="vstatus" class="muted"></span><button class="btn small ghost" id="skip">Chiudi la votazione</button></div>
   </div>`;
   $('#skip').onclick = endVote;
-  UPD.vote();
+  const me = H.me && byId(H.me.id);
+  if (me && canVote(me, m) && !m.votes[me.id]){
+    document.querySelectorAll('.acard[data-id]').forEach(c => {
+      if (c.dataset.id === me.id) return;
+      c.classList.add('pick');
+      c.onclick = () => {
+        if (H.phase !== 'vote' || cur() !== m || m.votes[me.id]) return;
+        document.querySelectorAll('.acard').forEach(x => x.classList.remove('pick'));
+        c.classList.add('sel');
+        hostMsg(LOCAL, {t:'vote', choice:c.dataset.id});
+      };
+    });
+  }
+  UPD.vote(); drawMe();
 };
 UPD.vote = () => {
   const m = cur();
@@ -777,51 +848,62 @@ function playerMsg(d, to){
   if (d.t === 'view') renderPlayer(d.v);
 }
 
+function playerBody(v, panel){
+  if (v.type === 'wait'){
+    if (panel) return `<div class="mewait"><span class="emoji">${v.emoji || '👀'}</span><div><b>${esc(v.title)}</b><br><span class="muted" style="color:#6b5b9a">${esc(v.msg || '')}</span></div></div>`;
+    return `<div class="grow"><div class="emoji">${v.emoji || '👀'}</div><h2 style="font-size:28px">${esc(v.title)}</h2><p class="lead">${esc(v.msg || '')}</p></div>`;
+  }
+  if (v.type === 'answer'){
+    const q = v.prompts[0], n = Math.max(1, blanks(q.text));
+    return `${panel ? '' : timerHTML()}
+      <div class="${panel ? '' : 'muted '}small">Frase ${v.done + 1} di ${v.tot}</div>
+      <div class="${panel ? '' : 'card'}"><div class="prompt" data-prev>${fill(q.text)}</div></div>
+      <div class="inputs">${Array.from({length:n}, (_, i) =>
+        `<input class="ans" maxlength="45" autocomplete="off" enterkeyhint="${i === n-1 ? 'send' : 'next'}" placeholder="${n > 1 ? 'Buco ' + (i+1) : 'La tua risposta'}">`).join('')}</div>
+      <button class="btn big" data-send>Invia</button>`;
+  }
+  if (v.type === 'vote'){
+    if (panel) return `<div class="mewait"><span class="emoji">👆</span><div><b>Tocca la risposta che ti fa più ridere</b></div></div>`;
+    return `${timerHTML()}<h2>Quale ti fa più ridere?</h2>
+      <div class="opts">${v.options.map(o => `<button class="opt" data-id="${esc(o.id)}">${fill(v.prompt, o.parts)}</button>`).join('')}</div>`;
+  }
+  return '';
+}
+
+function wirePlayer(root, v, sendFn){
+  if (v.type === 'answer'){
+    const q = v.prompts[0];
+    const ins = [...root.querySelectorAll('.ans')];
+    const prev = root.querySelector('[data-prev]'), btn = root.querySelector('[data-send]');
+    const vals = () => ins.map(i => i.value.trim());
+    ins.forEach((inp, i) => {
+      inp.oninput = () => { prev.innerHTML = fill(q.text, vals()); };
+      inp.onkeydown = e => { if (e.key === 'Enter'){ e.preventDefault(); if (ins[i+1]) ins[i+1].focus(); else btn.click(); } };
+    });
+    if (ins[0]) ins[0].focus();
+    btn.onclick = () => {
+      const empty = ins.find(i => !i.value.trim());
+      if (empty){ empty.classList.add('shake'); empty.focus(); setTimeout(() => empty.classList.remove('shake'), 400); return; }
+      btn.disabled = true;
+      sendFn({t:'answer', mid:q.mid, parts:vals()});
+    };
+  } else if (v.type === 'vote'){
+    root.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+      root.querySelectorAll('.opt').forEach(x => x.disabled = true);
+      b.classList.add('sel');
+      sendFn({t:'vote', choice:b.dataset.id});
+    });
+  }
+}
+
 function renderPlayer(v){
   P.localEnd = v.left ? Date.now() + v.left : 0; P.total = v.total || 0;
   const key = JSON.stringify(Object.assign({}, v, {left:0}));
   if (key === P.lastKey) return;
   P.lastKey = key;
   const top = `<div class="ptop"><span class="dot" style="background:${v.color}"></span><b>${esc(v.name)}</b><span class="pscore">${v.score} pt</span></div>`;
-  let body = '';
-  if (v.type === 'wait'){
-    body = `<div class="grow"><div class="emoji">${v.emoji || '👀'}</div><h2 style="font-size:28px">${esc(v.title)}</h2><p class="lead">${esc(v.msg || '')}</p></div>`;
-  } else if (v.type === 'answer'){
-    const q = v.prompts[0], n = Math.max(1, blanks(q.text));
-    body = `${timerHTML()}
-      <div class="muted small">Frase ${v.done + 1} di ${v.tot}</div>
-      <div class="card"><div class="prompt" id="prev">${fill(q.text)}</div></div>
-      <div class="inputs">${Array.from({length:n}, (_, i) =>
-        `<input class="ans" maxlength="45" autocomplete="off" enterkeyhint="${i === n-1 ? 'send' : 'next'}" placeholder="${n > 1 ? 'Buco ' + (i+1) : 'La tua risposta'}">`).join('')}</div>
-      <button class="btn big" id="sendA">Invia</button>`;
-  } else if (v.type === 'vote'){
-    body = `${timerHTML()}<h2>Quale ti fa più ridere?</h2>
-      <div class="opts">${v.options.map(o => `<button class="opt" data-id="${esc(o.id)}">${fill(v.prompt, o.parts)}</button>`).join('')}</div>`;
-  }
-  app.innerHTML = `<div class="screen phone">${top}${body}</div>`;
-
-  if (v.type === 'answer'){
-    const q = v.prompts[0];
-    const ins = [...document.querySelectorAll('.ans')];
-    const vals = () => ins.map(i => i.value.trim());
-    ins.forEach((inp, i) => {
-      inp.oninput = () => { $('#prev').innerHTML = fill(q.text, vals()); };
-      inp.onkeydown = e => { if (e.key === 'Enter'){ e.preventDefault(); if (ins[i+1]) ins[i+1].focus(); else $('#sendA').click(); } };
-    });
-    ins[0].focus();
-    $('#sendA').onclick = () => {
-      const empty = ins.find(i => !i.value.trim());
-      if (empty){ empty.classList.add('shake'); empty.focus(); setTimeout(() => empty.classList.remove('shake'), 400); return; }
-      $('#sendA').disabled = true;
-      send(P.conn, {t:'answer', mid:q.mid, parts:vals()});
-    };
-  } else if (v.type === 'vote'){
-    document.querySelectorAll('.opt').forEach(b => b.onclick = () => {
-      document.querySelectorAll('.opt').forEach(x => x.disabled = true);
-      b.classList.add('sel');
-      send(P.conn, {t:'vote', choice:b.dataset.id});
-    });
-  }
+  app.innerHTML = `<div class="screen phone">${top}${playerBody(v, false)}</div>`;
+  wirePlayer(app, v, d => send(P.conn, d));
 }
 
 /* ===================== TIMER VISIVO ===================== */
