@@ -149,6 +149,21 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);outline:none}
 .tag{background:var(--pink);color:#fff;border-radius:99px;padding:3px 10px;font-size:14px;font-weight:800}
 .delta{color:#7ee36b;font-size:15px}
 .opt.tally{cursor:default}
+body{transition:background-color .4s}
+body[data-mode="vote"]{background:radial-gradient(circle at 50% 0%,#0f6b6f 0,transparent 60%),#0b3140;background-attachment:fixed}
+body[data-mode="fight"]{background:radial-gradient(circle at 50% 0%,#8a1456 0,transparent 60%),#3b0a2a;background-attachment:fixed}
+.modehead{border-radius:20px;padding:16px 14px;text-align:center;animation:stamp .45s both;box-shadow:0 8px 0 rgba(0,0,0,.25)}
+.modehead .mt{font-family:Bungee,sans-serif;font-size:26px;line-height:1.1}
+.modehead .ms{font-weight:700;margin-top:6px;font-size:16px}
+.modehead.vote{background:var(--cyan);color:var(--ink)}
+.modehead.fight{background:var(--pink);color:#fff}
+.votebtn{display:flex;align-items:flex-start;gap:12px;border-color:var(--cyan)}
+.votebtn:active{transform:translateY(3px)}
+.votebtn.sel{border-color:var(--yellow);background:#fffbe6}
+.optletter{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-family:Bungee,sans-serif;font-size:16px}
+.opt.rival{opacity:.85}
+.tag.grey{background:#8b80b3}
+.votedcount{text-align:center;font-weight:700;color:#ffd0e8}
 .pcard.reveal{animation:flipin .6s cubic-bezier(.2,1.4,.4,1) both}
 .hp{display:flex;flex-direction:column;gap:18px;flex:1}
 .hbar{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid rgba(255,255,255,.15);padding-top:12px}
@@ -293,6 +308,7 @@ let MODE = null;
 
 /* ===================== HOME ===================== */
 function home(){
+  document.body.dataset.mode = '';
   MODE = null; window.onbeforeunload = null;
   app.innerHTML = `<div class="screen center">
     <h1 class="logo">TAPPA<span>BUCHI</span></h1>
@@ -377,6 +393,7 @@ function drawHP(){
   el.dataset.key = key;
   el.innerHTML = `<div class="ptop"><span class="dot" style="background:${v.color}"></span><b>👑 ${esc(v.name)}</b><span class="pill" style="margin-left:6px">Stanza ${H.code}</span><span class="pscore">${v.score} pt</span></div>`
                + playerBody(v, false);
+  setMode(v);
   wirePlayer(el, v, d => hostMsg(LOCAL, d));
 }
 // Pulsanti dell'host per far avanzare la partita (le fasi vanno avanti anche da sole)
@@ -681,7 +698,7 @@ function viewFor(p){
         const opts = (m.order || answered(m)).map(id => ({parts: m.answers[id], votes: Object.values(m.votes).filter(c => c === id).length, mine: id === p.id}));
         return Object.assign(v, {type:'tally', prompt:m.prompt, options:opts, voted:Object.keys(m.votes).length, voters:elig(m).filter(x => x.connected).length});
       }
-      if (m.votes[p.id]) return W('🗳️', 'Voto registrato', 'Vediamo chi vince…');
+      if (m.votes[p.id]) return Object.assign(W('✅', 'Voto registrato!', 'Aspetta gli altri: tra poco scopriamo chi vince.'), {mode:'vote'});
       const opts = (m.order || answered(m)).filter(id => id !== p.id).map(id => ({id, parts: m.answers[id]}));
       return Object.assign(v, {type:'vote', prompt:m.prompt, options:opts});
     }
@@ -746,6 +763,7 @@ const hdr = () => `<div class="hdr"><span class="pill">${roundLabel()}</span><sp
 const joinUrl = () => location.origin + location.pathname + '?room=' + H.code;
 
 VIEW.lobby = () => {
+  document.body.dataset.mode = '';
   const url = joinUrl();
   const opt = (vals, cur) => vals.map(v => `<option value="${v}" ${v === cur ? 'selected' : ''}>${v} secondi</option>`).join('');
   app.innerHTML = `<div class="screen host"><div class="lobby">
@@ -1080,21 +1098,36 @@ function playerBody(v, panel){
         <span class="bpts">${b.score}</span></div>`).join('')}</div>`;
   }
   if (v.type === 'tally'){
+    // SCHERMATA "È LA TUA SFIDA": solo lettura, voti in tempo reale
     const tot = Math.max(1, v.voted);
-    return `<h2 style="font-size:${panel ? 20 : 24}px">🥊 È la tua sfida! Preferenze in tempo reale</h2>
-      <div class="opts">${v.options.map(o => `<div class="opt tally ${o.mine ? 'mine' : ''}">
-        ${o.mine ? '<span class="tag">LA TUA</span> ' : ''}${fill(v.prompt, o.parts)}
+    return `${panel ? '' : timerHTML()}
+      <div class="modehead fight"><div class="mt">🥊 È la tua sfida!</div>
+        <div class="ms">🔒 Non puoi votare: guarda come votano gli altri</div></div>
+      <div class="opts">${v.options.map(o => `<div class="opt tally ${o.mine ? 'mine' : 'rival'}">
+        <span class="tag ${o.mine ? '' : 'grey'}">${o.mine ? 'LA TUA' : 'AVVERSARIO'}</span>
+        <div style="margin-top:8px">${fill(v.prompt, o.parts)}</div>
         <div class="tbarv"><div style="width:${(o.votes / tot * 100).toFixed(0)}%"></div></div>
         <div class="tcount">${o.votes} vot${o.votes === 1 ? 'o' : 'i'}</div></div>`).join('')}</div>
-      <div class="${panel ? '' : 'muted '}small">${v.voted}/${v.voters} hanno votato</div>`;
+      <div class="votedcount">${v.voted}/${v.voters} hanno votato</div>`;
   }
   if (v.type === 'vote'){
+    // SCHERMATA "TOCCA A TE VOTARE": risposte cliccabili con lettera
     if (panel) return `<div class="mewait"><span class="emoji">👆</span><div><b>Tocca la risposta che ti fa più ridere</b></div></div>`;
-    return `${timerHTML()}<h2>Quale ti fa più ridere?</h2>
-      <div class="opts">${v.options.map(o => `<button class="opt" data-id="${esc(o.id)}">${fill(v.prompt, o.parts)}</button>`).join('')}</div>`;
+    return `${timerHTML()}
+      <div class="modehead vote"><div class="mt">🗳️ Tocca a te votare!</div>
+        <div class="ms">Scegli la risposta che ti fa più ridere</div></div>
+      <div class="opts">${v.options.map((o, i) => `<button class="opt votebtn" data-id="${esc(o.id)}">
+        <span class="optletter">${'ABCDEFGHIJ'[i]}</span><span>${fill(v.prompt, o.parts)}</span></button>`).join('')}</div>`;
   }
   return '';
 }
+
+function modeOf(v){
+  if (v.type === 'vote' || v.mode === 'vote') return 'vote';
+  if (v.type === 'tally' || (v.type === 'show' && v.mine)) return 'fight';
+  return '';
+}
+function setMode(v){ document.body.dataset.mode = modeOf(v); }
 
 function wirePlayer(root, v, sendFn){
   if (v.type === 'answer'){
@@ -1129,6 +1162,7 @@ function renderPlayer(v){
   P.lastKey = key;
   const top = `<div class="ptop"><span class="dot" style="background:${v.color}"></span><b>${esc(v.name)}</b><span class="pscore">${v.score} pt</span></div>`;
   app.innerHTML = `<div class="screen phone">${top}${playerBody(v, false)}</div>`;
+  setMode(v);
   wirePlayer(app, v, d => send(P.conn, d));
 }
 
