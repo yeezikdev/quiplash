@@ -149,6 +149,19 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);outline:none}
 .tag{background:var(--pink);color:#fff;border-radius:99px;padding:3px 10px;font-size:14px;font-weight:800}
 .delta{color:#7ee36b;font-size:15px}
 .opt.tally{cursor:default}
+.pbanner{font-family:Bungee,sans-serif;font-size:28px;color:var(--yellow);text-align:center;line-height:1.15;animation:stamp .5s both}
+.mymsg{background:var(--pink);color:#fff;font-weight:800;border-radius:14px;padding:10px 14px;text-align:center}
+.pcard{background:#fff;color:var(--ink);border-radius:18px;padding:16px;border:5px solid var(--c);font:700 18px/1.4 Rubik,sans-serif;animation:pop .4s both}
+.pcard.win{box-shadow:0 0 0 4px var(--yellow)}
+.pcard.lose{opacity:.75}
+.pcard .ameta{font-size:15px;margin-top:10px}
+.gain.small{font-size:16px;padding:10px 12px}
+.gain.small .gpts{font-size:20px}
+.gain.me,.prow.me{outline:3px solid var(--yellow)}
+.pboard{display:flex;flex-direction:column;gap:8px}
+.prow{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.08);border-radius:14px;padding:10px 14px;font-weight:800;font-size:17px;animation:slide .4s both}
+.ppos{min-width:28px}
+.pname{flex:1;min-width:0;overflow-wrap:anywhere}
 .opt.mine{border-color:var(--pink)}
 .tbarv{height:12px;background:#ece7ff;border-radius:99px;overflow:hidden;margin-top:12px}
 .tbarv div{height:100%;background:linear-gradient(90deg,var(--pink),var(--yellow));border-radius:99px;transition:width .4s}
@@ -553,6 +566,19 @@ function winnersOf(m){
   const ids = answered(m), max = Math.max(...ids.map(id => m.R[id].votes));
   return max > 0 ? ids.filter(id => m.R[id].votes === max) : [];
 }
+function winnerText(m){
+  const w = winnersOf(m), names = w.map(id => byId(id).name).join(' e ');
+  if (m.jinx) return {title:'Stessa risposta! 🙈', sub:'Avete scritto la stessa cosa: nessuno vince.'};
+  if (m.novotes) return {title:'Nessun voto', sub:'Nessuno ha votato questa sfida.'};
+  if (m.forfeit) return {title:'Vince ' + names + '!', sub: m.final ? "È l'unico ad aver risposto." : "L'avversario non ha risposto: vittoria a tavolino."};
+  if (w.length > 1) return {title:'Pareggio!', sub: names + ' con ' + m.R[w[0]].votes + ' voti a testa.'};
+  const v = m.R[w[0]].votes;
+  return {title:'🏆 Vince ' + names + '!', sub: m.cappotto ? 'CAPPOTTO! Ha preso tutti i voti.' : `Con ${v} vot${v === 1 ? 'o' : 'i'}.`};
+}
+// classifica generale da mandare ai telefoni
+function boardData(me, gains = {}){
+  return sorted().map(p => ({name:p.name, color:p.color, score:p.score, rank:rank(p), delta:gains[p.id] || 0, me:p.id === me.id, host:!!p.host}));
+}
 function isLastMatch(){ return H.matchups.slice(H.cur + 1).every(x => answered(x).length === 0); }
 function score(m){
   if (m.scored) return; m.scored = true;
@@ -625,19 +651,30 @@ function viewFor(p){
       return W('👀', 'Guarda lo schermo!', 'Stanno uscendo le risposte. Tra poco si vota.');
     }
     case 'winner': {
-      const m = cur(), w = winnersOf(m);
-      if (w.includes(p.id)) return W('🏆', w.length > 1 ? 'Pareggio: sei tra i vincitori!' : 'Hai vinto la sfida!', 'Guarda lo schermo!');
-      if (m.R && m.R[p.id] && m.answers[p.id]) return W('😬', 'Sfida persa…', 'Ti rifarai alla prossima!');
-      const names = w.map(id => byId(id).name).join(' e ');
-      return W('👀', w.length ? 'Vince ' + names + '!' : 'Nessun vincitore', 'Guarda lo schermo!');
+      const m = cur(), w = winnersOf(m), wt = winnerText(m);
+      let mine = '';
+      if (w.includes(p.id)) mine = w.length > 1 ? 'Pareggio: sei tra i vincitori!' : 'Hai vinto la sfida!';
+      else if (m.answers[p.id]) mine = 'Sfida persa… ti rifarai alla prossima!';
+      const ids = answered(m).slice().sort((a, b) => (w.includes(b) - w.includes(a)) || (m.R[b].votes - m.R[a].votes));
+      return Object.assign(v, {type:'winner', title:wt.title, sub:wt.sub, mine, prompt:m.prompt,
+        cards: ids.map(id => { const a = byId(id), r = m.R[id];
+          return {parts:m.answers[id], name:a.name, color:a.color, votes:r.votes, voters:r.voters, win:w.includes(id), mine:id === p.id}; })});
     }
     case 'points': {
-      const m = cur(), r = m.R && m.R[p.id];
-      const title = r && m.answers[p.id] ? (r.pts > 0 ? '+' + r.pts + ' punti!' : 'Zero punti in questa sfida') : 'Classifica';
-      return W(r && r.pts > 0 ? '🤑' : '📊', title, `Sei ${rank(p)}° con ${p.score} punti.`);
+      const m = cur(), gains = {};
+      answered(m).forEach(id => gains[id] = m.R[id].pts);
+      const r = m.R && m.R[p.id];
+      const title = r && m.answers[p.id] ? (r.pts > 0 ? '+' + r.pts + ' punti!' : 'Zero punti in questa sfida') : 'Punti della sfida';
+      const gl = answered(m).sort((a, b) => m.R[b].pts - m.R[a].pts).map(id => { const a = byId(id);
+        return {name:a.name, color:a.color, votes:m.R[id].votes, pts:m.R[id].pts, cappotto:m.cappotto === id, me:id === p.id}; });
+      return Object.assign(v, {type:'board', title, gains:gl, board:boardData(p, gains)});
     }
     case 'scores': return W('📊', 'Sei ' + rank(p) + '°', `Hai ${p.score} punti. Guarda la classifica sullo schermo.`);
-    case 'end': { const rk = rank(p); return W(rk === 1 ? '🏆' : '🎤', rk === 1 ? 'Hai vinto!' : 'Posizione finale: ' + rk + '°', `Punteggio finale: ${p.score}`); }
+    case 'end': {
+      const s = sorted(), top = s.filter(x => x.score === s[0].score), rk = rank(p);
+      const title = top.length > 1 ? 'Pareggio finale!' : '🏆 ' + top[0].name + ' vince la partita!';
+      return Object.assign(v, {type:'board', final:true, title, sub: rk === 1 ? 'Sei primo! Complimenti!' : `Sei arrivato ${rk}° con ${p.score} punti.`, gains:[], board:boardData(p)});
+    }
     default: return W('👀', 'Guarda lo schermo!', '');
   }
 }
@@ -802,13 +839,7 @@ UPD.vote = () => {
 VIEW.winner = () => {
   const m = cur(), w = winnersOf(m);
   const others = answered(m).filter(id => !w.includes(id)).sort((a, b) => m.R[b].votes - m.R[a].votes);
-  const names = w.map(id => esc(byId(id).name)).join(' e ');
-  let title, sub = '';
-  if (m.jinx){ title = 'Stessa risposta! 🙈'; sub = 'Avete scritto la stessa cosa: nessuno vince.'; }
-  else if (m.novotes){ title = 'Nessun voto'; sub = 'Nessuno ha votato questa sfida.'; }
-  else if (m.forfeit){ title = 'Vince ' + names + '!'; sub = m.final ? 'È l\'unico ad aver risposto.' : 'L\'avversario non ha risposto: vittoria a tavolino.'; }
-  else if (w.length > 1){ title = 'Pareggio!'; sub = names + ' con ' + m.R[w[0]].votes + ' voti a testa.'; }
-  else { const v = m.R[w[0]].votes; title = '🏆 Vince ' + names + '!'; sub = m.cappotto ? 'CAPPOTTO! Ha preso tutti i voti.' : `Con ${v} vot${v === 1 ? 'o' : 'i'}.`; }
+  const wt = winnerText(m), title = esc(wt.title), sub = esc(wt.sub);
   app.innerHTML = `<div class="screen host center">${hdr()}
     <div class="prompt big" style="font-size:clamp(20px,2.4vw,32px)">${fill(m.prompt)}</div>
     <div class="banner">${title}</div>
@@ -954,6 +985,30 @@ function playerBody(v, panel){
       <div class="inputs">${Array.from({length:n}, (_, i) =>
         `<input class="ans" maxlength="45" autocomplete="off" enterkeyhint="${i === n-1 ? 'send' : 'next'}" placeholder="${n > 1 ? 'Buco ' + (i+1) : 'La tua risposta'}">`).join('')}</div>
       <button class="btn big" data-send>Invia</button>`;
+  }
+  if (v.type === 'winner'){
+    return `<div class="pbanner">${esc(v.title)}</div>
+      ${v.sub ? `<p class="lead" style="text-align:center">${esc(v.sub)}</p>` : ''}
+      ${v.mine ? `<div class="mymsg">${esc(v.mine)}</div>` : ''}
+      <div class="opts">${v.cards.map(c => `<div class="pcard ${c.win ? 'win' : 'lose'}" style="--c:${c.color}">
+        ${c.win ? '<span class="tag">VINCE</span> ' : ''}${fill(v.prompt, c.parts)}
+        <div class="ameta"><span class="aname" style="background:${c.color}">${esc(c.name)}${c.mine ? ' (tu)' : ''}</span>
+        <span class="votes">${c.votes} vot${c.votes === 1 ? 'o' : 'i'}</span>
+        ${c.voters.length ? `<div class="voters">Votato da: ${c.voters.map(esc).join(', ')}</div>` : ''}</div></div>`).join('')}</div>`;
+  }
+  if (v.type === 'board'){
+    return `<div class="pbanner">${esc(v.title)}</div>
+      ${v.sub ? `<p class="lead" style="text-align:center">${esc(v.sub)}</p>` : ''}
+      ${v.gains.length ? `<h3>Punti della sfida</h3><div class="gains">${v.gains.map(g => `<div class="gain small ${g.me ? 'me' : ''}">
+        <span class="aname" style="background:${g.color}">${esc(g.name)}</span>
+        <span class="muted">${g.votes} vot${g.votes === 1 ? 'o' : 'i'}</span>${g.cappotto ? '<span class="tag">CAPPOTTO</span>' : ''}
+        <span class="gpts">+${g.pts}</span></div>`).join('')}</div>` : ''}
+      <h3>${v.final ? 'Classifica finale' : 'Classifica generale'}</h3>
+      <div class="pboard">${v.board.map(b => `<div class="prow ${b.me ? 'me' : ''}">
+        <span class="ppos">${b.rank === 1 ? '🥇' : b.rank === 2 ? '🥈' : b.rank === 3 ? '🥉' : b.rank + '.'}</span>
+        <span class="dot" style="background:${b.color}"></span>
+        <span class="pname">${b.host ? '👑 ' : ''}${esc(b.name)}${b.me ? ' (tu)' : ''}${b.delta ? ` <span class="delta">+${b.delta}</span>` : ''}</span>
+        <span class="bpts">${b.score}</span></div>`).join('')}</div>`;
   }
   if (v.type === 'tally'){
     const tot = Math.max(1, v.voted);
