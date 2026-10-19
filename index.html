@@ -149,6 +149,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);outline:none}
 .tag{background:var(--pink);color:#fff;border-radius:99px;padding:3px 10px;font-size:14px;font-weight:800}
 .delta{color:#7ee36b;font-size:15px}
 .opt.tally{cursor:default}
+.pcard.reveal{animation:flipin .6s cubic-bezier(.2,1.4,.4,1) both}
+.hp{display:flex;flex-direction:column;gap:18px;flex:1}
+.hbar{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid rgba(255,255,255,.15);padding-top:12px}
+.hbar:empty{display:none}
 .pbanner{font-family:Bungee,sans-serif;font-size:28px;color:var(--yellow);text-align:center;line-height:1.15;animation:stamp .5s both}
 .mymsg{background:var(--pink);color:#fff;font-weight:800;border-radius:14px;padding:10px 14px;text-align:center}
 .pcard{background:#fff;color:var(--ink);border-radius:18px;padding:16px;border:5px solid var(--c);font:700 18px/1.4 Rubik,sans-serif;animation:pop .4s both}
@@ -350,7 +354,7 @@ const LOCAL = {open:true, peer:'local', send: m => localRecv(m)};
 function localRecv(m){
   if (!H.me) return;
   if (m.t === 'joined'){ const p = H.players.find(x => x.conn === LOCAL); if (p){ p.host = true; H.me.id = p.id; } }
-  else if (m.t === 'view'){ H.me.view = m.v; drawMe(); }
+  else if (m.t === 'view'){ H.me.view = m.v; if (document.getElementById('hp')) drawHP(); else drawMe(); }
 }
 function drawMe(){
   const el = document.getElementById('me');
@@ -362,6 +366,36 @@ function drawMe(){
   el.innerHTML = `<div class="mehead"><span class="dot" style="background:${v.color}"></span>Tu: ${esc(v.name)}<span class="pscore">${v.score} pt</span></div>`
                + playerBody(v, true);
   wirePlayer(el, v, d => hostMsg(LOCAL, d));
+}
+
+function drawHP(){
+  const el = document.getElementById('hp');
+  if (!el || !H.me || !H.me.view) return;
+  const v = H.me.view;
+  const key = JSON.stringify(Object.assign({}, v, {left:0}));
+  if (el.dataset.key === key) return;
+  el.dataset.key = key;
+  el.innerHTML = `<div class="ptop"><span class="dot" style="background:${v.color}"></span><b>👑 ${esc(v.name)}</b><span class="pill" style="margin-left:6px">Stanza ${H.code}</span><span class="pscore">${v.score} pt</span></div>`
+               + playerBody(v, false);
+  wirePlayer(el, v, d => hostMsg(LOCAL, d));
+}
+// Pulsanti dell'host per far avanzare la partita (le fasi vanno avanti anche da sole)
+function drawBar(){
+  const el = document.getElementById('hbar'); if (!el) return;
+  const last = H.phase === 'points' && isLastMatch();
+  const b = {
+    answer: ['Chiudi le risposte', endAnswer],
+    show:   ['Vai alla votazione ▶', startVote],
+    vote:   ['Chiudi la votazione', endVote],
+    winner: ['Punti e classifica ▶', showPoints],
+    points: [!last ? 'Prossima sfida ▶' : H.round < 3 ? `Inizia il round ${H.round + 1} ▶` : 'Classifica finale ▶', nextMatch],
+    end:    ['Nuova partita', playAgain]
+  }[H.phase];
+  const k = H.phase + '|' + H.cur + '|' + (b ? b[0] : '');
+  if (el.dataset.key === k) return;
+  el.dataset.key = k;
+  el.innerHTML = b ? `<span class="muted small">Comandi host</span><button class="btn small ${H.phase === 'end' ? '' : 'ghost'}" id="hb">${b[0]}</button>` : '';
+  if (b) $('#hb').onclick = b[1];
 }
 
 function hostStart(myName){
@@ -396,7 +430,7 @@ function onConn(conn){
     const p = H.players.find(x => x.conn === conn);
     if (!p || !p.connected) return;
     p.connected = false;
-    if (H.phase === 'lobby') H.players.splice(H.players.indexOf(p), 1);
+    if (H.phase === 'lobby'){ H.players.splice(H.players.indexOf(p), 1); broadcast(); }
     renderHost(); checkProgress();
   };
   conn.on('close', lost); conn.on('error', lost);
@@ -427,7 +461,8 @@ function hostMsg(conn, d){
       H.players.push(p);
     }
     send(conn, {t:'joined', name:p.name});
-    sendView(p); renderHost(); return;
+    if (H.phase === 'lobby') broadcast(); else sendView(p);
+    renderHost(); return;
   }
   const p = H.players.find(x => x.conn === conn);
   if (!p) return;
@@ -579,6 +614,11 @@ function winnerText(m){
 function boardData(me, gains = {}){
   return sorted().map(p => ({name:p.name, color:p.color, score:p.score, rank:rank(p), delta:gains[p.id] || 0, me:p.id === me.id, host:!!p.host}));
 }
+function introText(){
+  return H.round === 1 ? 'Ogni sfida vale 1000 punti, divisi in base ai voti. Prendi tutti i voti e fai CAPPOTTO: bonus!'
+       : H.round === 2 ? 'Punti doppi! Ogni sfida vale 2000.'
+       : 'Una sola frase per tutti. Ogni voto vale 500 punti.';
+}
 function isLastMatch(){ return H.matchups.slice(H.cur + 1).every(x => answered(x).length === 0); }
 function score(m){
   if (m.scored) return; m.scored = true;
@@ -627,8 +667,8 @@ function viewFor(p){
              left: H.timerEnd ? Math.max(0, H.timerEnd - Date.now()) : 0, total: H.timerTotal};
   const W = (emoji, title, msg) => Object.assign(v, {type:'wait', emoji, title, msg});
   switch (H.phase){
-    case 'lobby': return W('🎉', 'Sei dentro!', 'Aspetta che entrino tutti e che si inizi la partita.');
-    case 'intro': return W('🔥', H.round < 3 ? 'Round ' + H.round : 'Round finale', 'Preparati: stanno arrivando le frasi!');
+    case 'lobby': return Object.assign(v, {type:'lobby', code:H.code, players:H.players.map(x => ({name:x.name, color:x.color, host:!!x.host}))});
+    case 'intro': return W('🔥', H.round < 3 ? 'Round ' + H.round : 'Round finale', introText());
     case 'answer': {
       const mine = H.matchups.map((m, i) => ({m, i})).filter(x => x.m.players.includes(p.id));
       const todo = mine.filter(x => !x.m.answers[p.id]);
@@ -647,8 +687,8 @@ function viewFor(p){
     }
     case 'show': {
       const m = cur();
-      if (!m.final && m.players.includes(p.id)) return W('🥊', 'È la tua sfida!', 'Guarda lo schermo: stanno uscendo le risposte…');
-      return W('👀', 'Guarda lo schermo!', 'Stanno uscendo le risposte. Tra poco si vota.');
+      return Object.assign(v, {type:'show', prompt:m.prompt, step:revealStep(m), mine: !m.final && m.players.includes(p.id),
+        answers: m.order.map(id => ({parts:m.answers[id], mine:id === p.id}))});
     }
     case 'winner': {
       const m = cur(), w = winnersOf(m), wt = winnerText(m);
@@ -686,6 +726,14 @@ let lastKey = '';
 const VIEW = {}, UPD = {};
 function renderHost(force){
   if (MODE !== 'host') return;
+  // Host che gioca: fuori dalla lobby ha le stesse schermate dei giocatori + una barra di controllo
+  if (H.me && H.phase !== 'lobby'){
+    if (force || !document.getElementById('hp')){
+      lastKey = '';
+      app.innerHTML = `<div class="screen phone"><div id="hp" class="hp"></div><div id="hbar" class="hbar"></div></div>`;
+    }
+    drawHP(); drawBar(); return;
+  }
   const key = H.phase + '|' + H.round + '|' + H.cur;
   if (!force && key === lastKey && UPD[H.phase]){ UPD[H.phase](); return; }
   lastKey = key;
@@ -710,6 +758,7 @@ VIEW.lobby = () => {
       </div>
       <h3>Giocatori <span id="pcount" class="muted"></span></h3>
       <div id="plist" class="chips" style="justify-content:flex-start"></div>
+      <div class="row" style="justify-content:flex-start"><button class="btn alt" id="invite">📤 Invita amici</button><span id="invmsg" class="muted small"></span></div>
       <button class="btn big" id="startBtn">Inizia</button>
       <p class="muted small">Da 3 a 10 giocatori. Tieni aperta questa pagina: è lei che gestisce la partita.</p>
     </div>
@@ -727,6 +776,14 @@ VIEW.lobby = () => {
     try { new QRCode(qr, {text:url, width:160, height:160, colorDark:'#1b0f3b', colorLight:'#ffffff'}); } catch(e){ qr.remove(); }
   } else qr.remove();
   $('#startBtn').onclick = startGame;
+  $('#invite').onclick = async () => {
+    const text = `Giochiamo a Tappabuchi! Entra con il codice ${H.code}`;
+    try {
+      if (navigator.share){ await navigator.share({title:'Tappabuchi', text, url}); return; }
+      await navigator.clipboard.writeText(text + ': ' + url);
+      $('#invmsg').textContent = 'Link copiato! Incollalo su WhatsApp.';
+    } catch(e){ if (e && e.name !== 'AbortError') $('#invmsg').textContent = url; }
+  };
   UPD.lobby();
 };
 UPD.lobby = () => {
@@ -985,6 +1042,18 @@ function playerBody(v, panel){
       <div class="inputs">${Array.from({length:n}, (_, i) =>
         `<input class="ans" maxlength="45" autocomplete="off" enterkeyhint="${i === n-1 ? 'send' : 'next'}" placeholder="${n > 1 ? 'Buco ' + (i+1) : 'La tua risposta'}">`).join('')}</div>
       <button class="btn big" data-send>Invia</button>`;
+  }
+  if (v.type === 'lobby'){
+    return `<div class="grow"><div class="emoji">🎉</div><h2 style="font-size:28px">Sei dentro!</h2>
+      <p class="lead">Aspetta che l'host avvii la partita.</p>
+      <div class="muted">Giocatori nella stanza ${esc(v.code)} (${v.players.length})</div>
+      <div class="chips">${v.players.map(x => `<span class="chip" style="background:${x.color}">${x.host ? '👑 ' : ''}${esc(x.name)}</span>`).join('')}</div></div>`;
+  }
+  if (v.type === 'show'){
+    return `<div class="pbanner" style="font-size:22px">${v.mine ? '🥊 È la tua sfida!' : 'Ecco le risposte…'}</div>
+      <div class="opts">${v.answers.map((a, i) => `<div class="pcard reveal ${a.mine ? 'mineb' : ''}" style="--c:${a.mine ? 'var(--pink)' : '#fff'};animation-delay:${(0.8 + i * v.step).toFixed(2)}s">
+        ${a.mine ? '<span class="tag">LA TUA</span> ' : ''}${fill(v.prompt, a.parts)}</div>`).join('')}</div>
+      <p class="muted small" style="text-align:center">Tra poco si vota!</p>`;
   }
   if (v.type === 'winner'){
     return `<div class="pbanner">${esc(v.title)}</div>
