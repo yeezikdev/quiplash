@@ -148,6 +148,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);outline:none}
 .gpts{margin-left:auto;font-family:Bungee,sans-serif;color:#7ee36b;font-size:28px}
 .tag{background:var(--pink);color:#fff;border-radius:99px;padding:3px 10px;font-size:14px;font-weight:800}
 .delta{color:#7ee36b;font-size:15px}
+.opt.tally{cursor:default}
+.opt.mine{border-color:var(--pink)}
+.tbarv{height:12px;background:#ece7ff;border-radius:99px;overflow:hidden;margin-top:12px}
+.tbarv div{height:100%;background:linear-gradient(90deg,var(--pink),var(--yellow));border-radius:99px;transition:width .4s}
+.tcount{font-family:Bungee,sans-serif;font-size:18px;margin-top:6px}
 .spinner{width:56px;height:56px;border:6px solid rgba(255,255,255,.2);border-top-color:var(--yellow);border-radius:50%;animation:spin 1s linear infinite}
 .shake{animation:shake .35s}
 
@@ -298,7 +303,7 @@ function home(){
 const H = {
   peer:null, code:'', players:[], seq:0, phase:'lobby', round:0, matchups:[], cur:-1,
   timerEnd:0, timerTotal:0, tok:0, to:null, used:new Set(),
-  settings:{answerTime:90, voteTime:20}, custom:[], customRaw:'', onlyCustom:false
+  settings:{answerTime:90, voteTime:10}, custom:[], customRaw:'', onlyCustom:false
 };
 
 function genCode(){ const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let c = ''; for (let i = 0; i < 4; i++) c += L[Math.floor(Math.random()*L.length)]; return c; }
@@ -429,6 +434,7 @@ function hostMsg(conn, d){
     if (!m || !canVote(p, m) || m.votes[p.id]) return;
     if (d.choice === p.id || !m.answers[d.choice]) return;
     m.votes[p.id] = d.choice;
+    if (!m.final) m.players.forEach(id => { const a = byId(id); if (a) sendView(a); });
     sendView(p); renderHost(); checkProgress();
   }
 }
@@ -605,7 +611,10 @@ function viewFor(p){
     }
     case 'vote': {
       const m = cur();
-      if (!canVote(p, m)) return W('🥊', 'È la tua sfida!', 'Gli altri stanno votando. Incrocia le dita.');
+      if (!canVote(p, m)){
+        const opts = (m.order || answered(m)).map(id => ({parts: m.answers[id], votes: Object.values(m.votes).filter(c => c === id).length, mine: id === p.id}));
+        return Object.assign(v, {type:'tally', prompt:m.prompt, options:opts, voted:Object.keys(m.votes).length, voters:elig(m).filter(x => x.connected).length});
+      }
       if (m.votes[p.id]) return W('🗳️', 'Voto registrato', 'Vediamo chi vince…');
       const opts = (m.order || answered(m)).filter(id => id !== p.id).map(id => ({id, parts: m.answers[id]}));
       return Object.assign(v, {type:'vote', prompt:m.prompt, options:opts});
@@ -670,7 +679,7 @@ VIEW.lobby = () => {
     <div class="lobbyR card">
       <h3>Impostazioni</h3>
       <label>Tempo per rispondere<select id="setAns">${opt([60,90,120,150], H.settings.answerTime)}</select></label>
-      <label>Tempo per votare<select id="setVote">${opt([15,20,30], H.settings.voteTime)}</select></label>
+      <label>Tempo per votare<select id="setVote">${opt([10,15,20,30], H.settings.voteTime)}</select></label>
       <label>Frasi extra (facoltativo: le frasi le sceglie già il gioco). Una per riga, ___ per ogni buco
         <textarea id="custom" rows="6" placeholder="Il peggior regalo per ___ è ___">${esc(H.customRaw)}</textarea></label>
       <label class="check"><input type="checkbox" id="onlyCustom" ${H.onlyCustom ? 'checked' : ''}> Usa solo i miei prompt</label>
@@ -945,6 +954,15 @@ function playerBody(v, panel){
       <div class="inputs">${Array.from({length:n}, (_, i) =>
         `<input class="ans" maxlength="45" autocomplete="off" enterkeyhint="${i === n-1 ? 'send' : 'next'}" placeholder="${n > 1 ? 'Buco ' + (i+1) : 'La tua risposta'}">`).join('')}</div>
       <button class="btn big" data-send>Invia</button>`;
+  }
+  if (v.type === 'tally'){
+    const tot = Math.max(1, v.voted);
+    return `<h2 style="font-size:${panel ? 20 : 24}px">🥊 È la tua sfida! Preferenze in tempo reale</h2>
+      <div class="opts">${v.options.map(o => `<div class="opt tally ${o.mine ? 'mine' : ''}">
+        ${o.mine ? '<span class="tag">LA TUA</span> ' : ''}${fill(v.prompt, o.parts)}
+        <div class="tbarv"><div style="width:${(o.votes / tot * 100).toFixed(0)}%"></div></div>
+        <div class="tcount">${o.votes} vot${o.votes === 1 ? 'o' : 'i'}</div></div>`).join('')}</div>
+      <div class="${panel ? '' : 'muted '}small">${v.voted}/${v.voters} hanno votato</div>`;
   }
   if (v.type === 'vote'){
     if (panel) return `<div class="mewait"><span class="emoji">👆</span><div><b>Tocca la risposta che ti fa più ridere</b></div></div>`;
