@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1b0f3b">
+<title>Tappabuchi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --bg:#1b0f3b; --ink:#1b0f3b; --yellow:#ffd23f; --pink:#ff4fa3; --cyan:#3ee6d0;
+  --muted:#b9a8ff; --green:#16a34a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  background:
+    radial-gradient(circle at 15% 0%,#3a1d86 0,transparent 50%),
+    radial-gradient(circle at 100% 100%,#5a1660 0,transparent 45%),
+    var(--bg);
+  background-attachment:fixed;
+  color:#fff;font-family:Rubik,system-ui,sans-serif;
+  -webkit-tap-highlight-color:transparent;
+}
+.screen{min-height:100vh;min-height:100dvh;padding:24px 16px;display:flex;flex-direction:column;gap:18px;max-width:1200px;margin:0 auto}
+.center{align-items:center;justify-content:center;text-align:center}
+.phone{max-width:520px}
+.grow{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;text-align:center}
+.row{display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;width:100%}
+.between{justify-content:space-between}
+
+.logo{font-family:Bungee,sans-serif;font-size:clamp(44px,10vw,96px);margin:0;line-height:.95;color:var(--yellow);
+  text-shadow:0 6px 0 #b8860b,0 12px 30px rgba(0,0,0,.4);transform:rotate(-3deg)}
+.logo span{color:var(--pink);text-shadow:0 6px 0 #a3125e,0 12px 30px rgba(0,0,0,.4)}
+.logo.sm{font-size:clamp(34px,5.5vw,60px)}
+.tag{font-size:clamp(17px,2vw,22px);color:#e9e3ff;margin:4px 0 8px}
+.huge{font-family:Bungee,sans-serif;font-size:clamp(34px,6vw,76px);margin:0;color:var(--yellow);line-height:1.05}
+.lead{font-size:clamp(17px,1.8vw,24px);color:#e9e3ff;max-width:820px;margin:0 auto;line-height:1.4}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+h2,h3{margin:0}
+
+.btn{font:800 18px Rubik,sans-serif;border:0;border-radius:16px;padding:14px 22px;background:var(--yellow);color:var(--ink);
+  box-shadow:0 6px 0 #c79a00;cursor:pointer;transition:transform .08s,box-shadow .08s}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #c79a00}
+.btn.big{font-size:21px;padding:18px 28px;width:100%;max-width:440px}
+.btn.alt{background:var(--cyan);box-shadow:0 6px 0 #1a9f8e}
+.btn.ghost{background:transparent;color:var(--muted);box-shadow:none;border:2px solid rgba(255,255,255,.2)}
+.btn.small{font-size:15px;padding:10px 16px}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.link{background:none;border:0;color:var(--muted);font:600 16px Rubik,sans-serif;cursor:pointer;padding:8px}
+.stack{display:flex;flex-direction:column;gap:16px;width:100%;align-items:center}
+
+.card{background:#fff;color:var(--ink);border-radius:22px;padding:20px;box-shadow:0 12px 30px rgba(0,0,0,.3)}
+.how{max-width:520px;text-align:left;margin-top:10px}
+.how ol{padding-left:20px;margin:10px 0 0;line-height:1.5}
+.form{width:100%;display:flex;flex-direction:column;gap:16px;text-align:left}
+
+label{display:flex;flex-direction:column;gap:6px;font-weight:600;text-align:left}
+input,select,textarea{font:600 18px Rubik,sans-serif;padding:14px;border-radius:14px;border:3px solid #e3dcff;color:var(--ink);background:#fff;width:100%}
+textarea{font-size:15px;resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:var(--pink);outline:none}
+#jcode{text-transform:uppercase;letter-spacing:.3em;font-family:Bungee,sans-serif;text-align:center;font-size:28px}
+.check{flex-direction:row;align-items:center;gap:10px}
+.check input{width:22px;height:22px}
+.err{background:#ffe1e1;color:#a40000;padding:10px 14px;border-radius:12px;font-weight:600}
+
+.prompt{font-weight:800;font-size:22px;line-height:1.4}
+.prompt.big{font-size:clamp(26px,3.4vw,50px);text-align:center;max-width:1050px;margin:0 auto}
+.blank{display:inline-block;min-width:3em;height:1em;border-bottom:.12em solid currentColor;margin:0 .15em;vertical-align:-.1em}
+.fill{background:var(--yellow);color:var(--ink);padding:0 .25em;border-radius:.25em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+
+.hdr{display:flex;justify-content:space-between;width:100%;gap:10px;flex-wrap:wrap}
+.pill{background:rgba(255,255,255,.1);padding:6px 14px;border-radius:99px;font-weight:700;font-size:14px}
+
+.chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.chip{padding:10px 16px;border-radius:999px;font-weight:800;color:var(--ink);animation:pop .3s both}
+.chip.off{opacity:.35}
+
+.timer{display:flex;align-items:center;gap:12px;width:100%;max-width:700px;margin:0 auto}
+.tbar{flex:1;height:14px;background:rgba(255,255,255,.15);border-radius:99px;overflow:hidden}
+#tbar{height:100%;width:100%;background:linear-gradient(90deg,var(--pink),var(--yellow));transition:width .2s linear}
+.tnum{font-family:Bungee,sans-serif;font-size:28px;min-width:2.2ch;text-align:right}
+
+.vs{display:grid;grid-template-columns:1fr auto 1fr;gap:24px;align-items:center;width:100%}
+.vs.one{grid-template-columns:minmax(0,720px);justify-content:center}
+.vsbadge{font-family:Bungee,sans-serif;font-size:48px;color:var(--pink);text-align:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;width:100%}
+@media (max-width:820px){.vs{grid-template-columns:1fr}.vsbadge{font-size:34px}}
+.acard{background:#fff;color:var(--ink);border-radius:24px;padding:24px;border:6px solid var(--c);
+  font-size:clamp(19px,2.3vw,32px);font-weight:700;line-height:1.35;animation:pop .45s both;text-align:left}
+.acard.win{box-shadow:0 0 0 6px var(--yellow),0 20px 50px rgba(0,0,0,.5)}
+.ameta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px;font-size:18px}
+.aname{padding:4px 12px;border-radius:999px;color:var(--ink);font-weight:800}
+.votes{font-weight:800}
+.pts{font-family:Bungee,sans-serif;color:var(--green);font-size:26px;margin-left:auto}
+.voters{width:100%;font-size:15px;color:#6b5b9a;font-weight:600}
+.banner{font-family:Bungee,sans-serif;font-size:clamp(28px,4.2vw,58px);color:var(--yellow);text-align:center;animation:stamp .5s both;line-height:1.1}
+
+.lobby{display:grid;grid-template-columns:1.3fr 1fr;gap:28px;align-items:start;width:100%}
+.lobbyL{display:flex;flex-direction:column;gap:18px;align-items:flex-start}
+.lobbyR{display:flex;flex-direction:column;gap:14px}
+@media (max-width:900px){.lobby{grid-template-columns:1fr}}
+.joinbox{display:flex;gap:20px;align-items:center;background:rgba(255,255,255,.08);border-radius:22px;padding:16px;flex-wrap:wrap}
+#qr{background:#fff;padding:8px;border-radius:12px;line-height:0}
+.code{font-family:Bungee,sans-serif;font-size:clamp(48px,7vw,84px);color:var(--yellow);letter-spacing:.08em;line-height:1}
+.url{font-size:13px;color:var(--muted);word-break:break-all;max-width:360px}
+
+.ptop{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.08);padding:10px 14px;border-radius:14px}
+.pscore{margin-left:auto;font-family:Bungee,sans-serif;color:var(--yellow)}
+.dot{width:14px;height:14px;border-radius:50%;flex:none}
+.emoji{font-size:72px;animation:bob 2s ease-in-out infinite}
+.inputs{display:flex;flex-direction:column;gap:12px}
+.opts{display:flex;flex-direction:column;gap:14px}
+.opt{display:block;width:100%;text-align:left;background:#fff;color:var(--ink);border:4px solid transparent;border-radius:18px;
+  padding:18px;font:700 19px/1.4 Rubik,sans-serif;cursor:pointer;box-shadow:0 6px 0 rgba(0,0,0,.25)}
+.opt.sel{border-color:var(--pink)}
+.opt:disabled{opacity:.6}
+
+.board{width:100%;max-width:820px;display:flex;flex-direction:column;gap:10px}
+.brow{display:grid;grid-template-columns:40px 170px 1fr 90px;gap:12px;align-items:center;font-size:20px;font-weight:800;animation:slide .4s both;text-align:left}
+.bpts{text-align:right;font-family:Bungee,sans-serif;color:var(--yellow)}
+.bbar{height:22px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden}
+.bbar div{height:100%;border-radius:99px;transition:width .8s}
+@media (max-width:600px){.brow{grid-template-columns:30px 1fr 80px}.bbar{display:none}}
+
+.spinner{width:56px;height:56px;border:6px solid rgba(255,255,255,.2);border-top-color:var(--yellow);border-radius:50%;animation:spin 1s linear infinite}
+.shake{animation:shake .35s}
+
+@keyframes pop{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:none}}
+@keyframes stamp{0%{opacity:0;transform:scale(2) rotate(-6deg)}70%{transform:scale(.95) rotate(-2deg)}100%{opacity:1;transform:scale(1) rotate(-2deg)}}
+@keyframes slide{from{opacity:0;transform:translateX(-30px)}to{opacity:1;transform:none}}
+@keyframes bob{50%{transform:translateY(-8px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ===================== PROMPT ===================== */
+const PROMPTS = [
+  "Il peggior nome per un gatto: ___",
+  "La cosa che non vorresti mai sentire dal tuo dentista: ___",
+  "Il nuovo gusto di gelato che nessuno ha chiesto: ___",
+  "Cosa c'è davvero nel Triangolo delle Bermuda: ___",
+  "Il titolo del film sulla tua vita: ___",
+  "La scusa peggiore per arrivare in ritardo al lavoro: ___",
+  "Il messaggio che non vorresti ricevere da tua madre alle 3 di notte: ___",
+  "Il segreto della nonna per un ragù perfetto: ___",
+  "La prima cosa che fa un alieno appena atterrato in Italia: ___",
+  "Il nome di una band metal composta solo da nonni: ___",
+  "Una cosa da non dire mai al primo appuntamento: ___",
+  "Il vero motivo per cui i dinosauri si sono estinti: ___",
+  "Il nuovo slogan del Ministero della Pigrizia: ___",
+  "L'ottavo nano di Biancaneve: ___",
+  "Cosa sussurrano i piccioni quando passi: ___",
+  "L'app che tutti userebbero ma nessuno ammetterebbe di avere: ___",
+  "Il peggior regalo di compleanno di sempre: ___",
+  "La domanda più imbarazzante da fare al prete: ___",
+  "Lo sport olimpico che dovrebbe esistere: ___",
+  "Cosa trovi in fondo alla borsa di tua zia: ___",
+  "Il nome di un profumo che sa di spogliatoio: ___",
+  "La nuova fobia del momento: la paura di ___",
+  "Il superpotere più inutile del mondo: ___",
+  "Il peggior nome per uno yacht: ___",
+  "La frase che fa scappare tutti da una festa: ___",
+  "Il vero motivo per cui il WiFi va lento: ___",
+  "Il piatto tipico del pianeta Marte: ___",
+  "Cosa c'è scritto sulla lapide di un influencer: ___",
+  "Il corso universitario più inutile: Laurea in ___",
+  "La nuova regola del condominio: vietato ___",
+  "La cosa più strana da mettere in valigia: ___",
+  "Il gusto di patatine più triste: ___",
+  "Il titolo del prossimo tormentone estivo: ___",
+  "Cosa pensano davvero i gatti di noi: ___",
+  "Le ultime parole famose di un cuoco: ___",
+  "Il lavoro dei sogni che non esiste ancora: ___",
+  "Il costume di Halloween più spaventoso di sempre: ___",
+  "Cosa nasconde Babbo Natale nel suo garage: ___",
+  "Il nome perfetto per un gruppo WhatsApp di famiglia: ___",
+  "La recensione a una stella più cattiva per il Colosseo: ___",
+  "Il motivo per cui il vicino urla ogni domenica: ___",
+  "La cosa più inquietante da trovare sotto il letto: ___",
+  "Ricetta segreta: mescola ___ con ___ e servi caldo.",
+  "Non ho mai visto ___ così arrabbiato come quando ha scoperto ___.",
+  "Il nuovo supereroe: Capitan ___, il cui unico potere è ___.",
+  "Oggi al telegiornale: ___ arrestato per ___.",
+  "Nel mio testamento lascio ___ a ___.",
+  "Il nuovo reality show: ___ contro ___.",
+  "Il mio terapeuta dice che ho paura di ___ per colpa di ___.",
+  "Ultim'ora: gli scienziati scoprono che ___ cura ___.",
+  "La coppia dell'anno: ___ e ___.",
+  "Primo appuntamento: lui porta ___, lei porta ___.",
+  "Il prossimo film d'animazione: ___ e il mistero di ___.",
+  "Ho perso il lavoro perché ho confuso ___ con ___.",
+  "Il segreto della felicità? ___ al mattino e ___ la sera.",
+  "Nuovo mobile svedese: si chiama ___ e si monta con ___.",
+  "Recensione: 'Ristorante carino, ma c'era ___ nel piatto e ___ in bagno.'",
+  "Nuovo proverbio: chi dorme non piglia ___, ma almeno ___.",
+  "Il mio coinquilino tiene ___ nel frigo accanto a ___.",
+  "Al festival di quest'anno vince ___ con la canzone '___'.",
+  "Il nuovo sport estremo: ___ sopra ___.",
+  "Manuale di sopravvivenza: se incontri ___, offrigli ___.",
+  "Nuova crema spalmabile al gusto ___ e ___.",
+  "Mia nonna ha aperto un canale dove fa ___ con ___.",
+  "Ho chiesto all'IA come ___ e mi ha risposto: '___'.",
+  "Il sindaco promette: più ___ e meno ___.",
+  "Profilo di incontri: 'Amo ___, odio ___.'",
+  "Quest'anno a Natale regalerò ___ a ___.",
+  "Cosa ho imparato quest'anno: mai mischiare ___ e ___.",
+  "La casa infestata più famosa d'Italia: dentro c'è ___ che urla '___'."
+];
+
+/* ===================== UTILITY ===================== */
+const PREFIX = 'tappabuchi-v1-';
+const COLORS = ['#ffd23f','#ff4fa3','#3ee6d0','#a99bff','#ff8a3d','#7ee36b','#4fb3ff','#ff6b6b','#f6a5ff','#c2f04d'];
+const app = document.getElementById('app');
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function shuffle(a){ a = a.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a; }
+const blanks = t => t.split('___').length - 1;
+function fill(t, parts){
+  const seg = t.split('___'); let h = esc(seg[0]);
+  for (let i = 1; i < seg.length; i++){
+    const a = parts && parts[i-1];
+    h += a ? `<span class="fill">${esc(a)}</span>` : `<span class="blank"></span>`;
+    h += esc(seg[i]);
+  }
+  return h;
+}
+const norm = s => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+function store(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+function load(k){ try { return localStorage.getItem(k) || ''; } catch(e){ return ''; } }
+function send(c, m){ try { if (c && c.open) c.send(m); } catch(e){} }
+const timerHTML = () => `<div class="timer"><div class="tbar"><div id="tbar"></div></div><div id="tnum" class="tnum"></div></div>`;
+const spinner = msg => `<div class="screen center"><div class="spinner"></div><p class="lead">${esc(msg)}</p></div>`;
+function showError(msg){
+  app.innerHTML = `<div class="screen center"><div class="emoji">😵</div><h2>${esc(msg)}</h2><button class="btn" id="back">Torna all'inizio</button></div>`;
+  $('#back').onclick = home;
+}
+
+let MODE = null;
+
+/* ===================== HOME ===================== */
+function home(){
+  MODE = null; window.onbeforeunload = null;
+  app.innerHTML = `<div class="screen center">
+    <h1 class="logo">TAPPA<span>BUCHI</span></h1>
+    <p class="tag">Riempi i buchi. Sfida un amico. Fai ridere tutti.</p>
+    <div class="stack">
+      <button class="btn big" id="bHost">📺 Crea una partita</button>
+      <button class="btn big alt" id="bJoin">📱 Entra con il telefono</button>
+    </div>
+    <div class="how card">
+      <h3>Come si gioca</h3>
+      <ol>
+        <li>Apri la partita su un PC o una TV: sarà lo schermo comune.</li>
+        <li>Ognuno entra dal proprio telefono con il codice stanza (o il QR).</li>
+        <li>Riempi i buchi delle frasi: ogni frase ce l'ha anche un altro giocatore.</li>
+        <li>Le due risposte si sfidano e tutti gli altri votano la migliore.</li>
+        <li>Tre round, l'ultimo con una frase per tutti. Vince chi fa più punti!</li>
+      </ol>
+    </div>
+  </div>`;
+  $('#bHost').onclick = hostStart;
+  $('#bJoin').onclick = () => joinScreen();
+}
+
+/* ===================== HOST ===================== */
+const H = {
+  peer:null, code:'', players:[], seq:0, phase:'lobby', round:0, matchups:[], cur:-1,
+  timerEnd:0, timerTotal:0, tok:0, to:null, used:new Set(),
+  settings:{answerTime:90, voteTime:20}, custom:[], customRaw:'', onlyCustom:false
+};
+
+function genCode(){ const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let c = ''; for (let i = 0; i < 4; i++) c += L[Math.floor(Math.random()*L.length)]; return c; }
+
+function hostStart(){
+  if (typeof Peer === 'undefined') return showError('Impossibile caricare la libreria di rete. Controlla la connessione.');
+  MODE = 'host';
+  app.innerHTML = spinner('Creo la stanza…');
+  const code = genCode();
+  const peer = new Peer(PREFIX + code);
+  let opened = false;
+  peer.on('open', () => {
+    opened = true; H.peer = peer; H.code = code; H.phase = 'lobby';
+    renderHost(true); wake();
+    window.onbeforeunload = () => 'Uscendo chiudi la partita per tutti.';
+  });
+  peer.on('connection', onConn);
+  peer.on('disconnected', () => { try { peer.reconnect(); } catch(e){} });
+  peer.on('error', e => {
+    if (e.type === 'unavailable-id' && !opened){ peer.destroy(); hostStart(); }
+    else if (!opened) showError('Errore di rete (' + e.type + '). Riprova.');
+    else console.warn(e);
+  });
+}
+
+async function wake(){ try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch(e){} }
+document.addEventListener('visibilitychange', () => { if (MODE === 'host' && document.visibilityState === 'visible') wake(); });
+
+function onConn(conn){
+  conn.on('data', d => { try { hostMsg(conn, d); } catch(e){ console.error(e); } });
+  const lost = () => {
+    const p = H.players.find(x => x.conn === conn);
+    if (!p || !p.connected) return;
+    p.connected = false;
+    if (H.phase === 'lobby') H.players.splice(H.players.indexOf(p), 1);
+    renderHost(); checkProgress();
+  };
+  conn.on('close', lost); conn.on('error', lost);
+}
+
+const byId = id => H.players.find(p => p.id === id);
+const cur = () => H.matchups[H.cur];
+const answered = m => m.players.filter(id => m.answers[id]);
+const canVote = (p, m) => m.final ? true : !m.players.includes(p.id);
+const elig = m => H.players.filter(p => canVote(p, m));
+const sorted = () => H.players.slice().sort((a,b) => b.score - a.score);
+const rank = p => 1 + H.players.filter(x => x.score > p.score).length;
+
+function hostMsg(conn, d){
+  if (!d || typeof d !== 'object') return;
+  if (d.t === 'join'){
+    const name = String(d.name || '').trim().replace(/\s+/g,' ').slice(0, 16);
+    if (!name) return send(conn, {t:'err', msg:'Inserisci un nome.'});
+    let p = H.players.find(x => x.name.toLowerCase() === name.toLowerCase());
+    if (p){
+      if (p.connected && p.conn !== conn && p.conn && p.conn.open) return send(conn, {t:'err', msg:'Nome già in uso. Scegline un altro.'});
+      p.conn = conn; p.connected = true;
+    } else {
+      if (H.phase !== 'lobby') return send(conn, {t:'err', msg:'La partita è già iniziata. Aspetta la prossima!'});
+      if (H.players.length >= 10) return send(conn, {t:'err', msg:'Stanza piena (massimo 10 giocatori).'});
+      const used = H.players.map(x => x.color);
+      p = {id:'p' + (++H.seq), name, score:0, conn, connected:true, color: COLORS.find(c => !used.includes(c)) || COLORS[0]};
+      H.players.push(p);
+    }
+    send(conn, {t:'joined', name:p.name});
+    sendView(p); renderHost(); return;
+  }
+  const p = H.players.find(x => x.conn === conn);
+  if (!p) return;
+
+  if (d.t === 'answer' && H.phase === 'answer'){
+    const m = H.matchups[d.mid];
+    if (!m || !m.players.includes(p.id) || m.answers[p.id]) return;
+    const n = Math.max(1, blanks(m.prompt));
+    const parts = [];
+    for (let i = 0; i < n; i++) parts.push(String((d.parts || [])[i] || '').trim().slice(0, 45));
+    if (parts.every(x => !x)) return;
+    m.answers[p.id] = parts.map(x => x || '…');
+    sendView(p); renderHost(); checkProgress();
+  }
+  else if (d.t === 'vote' && H.phase === 'vote'){
+    const m = cur();
+    if (!m || !canVote(p, m) || m.votes[p.id]) return;
+    if (d.choice === p.id || !m.answers[d.choice]) return;
+    m.votes[p.id] = d.choice;
+    sendView(p); renderHost(); checkProgress();
+  }
+}
+
+function checkProgress(){
+  if (H.phase === 'answer'){
+    const c = H.players.filter(p => p.connected);
+    if (c.length && c.every(p => H.matchups.every(m => !m.players.includes(p.id) || m.answers[p.id]))) endAnswer();
+  } else if (H.phase === 'vote'){
+    const m = cur();
+    const c = elig(m).filter(p => p.connected);
+    if (c.length && c.every(p => m.votes[p.id])) endVote();
+  }
+}
+
+/* --- timer --- */
+function setTimer(sec, fn, show = true){
+  const t = ++H.tok; clearTimeout(H.to);
+  H.timerEnd = show ? Date.now() + sec*1000 : 0;
+  H.timerTotal = show ? sec*1000 : 0;
+  H.to = setTimeout(() => { if (t === H.tok){ H.timerEnd = 0; fn(); } }, sec*1000);
+}
+function clearTimer(){ H.tok++; clearTimeout(H.to); H.timerEnd = 0; H.timerTotal = 0; }
+
+/* --- prompt --- */
+function parseCustom(raw){
+  return raw.split('\n').map(l => l.trim().replace(/_{2,}/g, '___')).filter(l => l.length > 3)
+    .map(l => (blanks(l) ? l : l + ' ___').slice(0, 160));
+}
+function allPrompts(){ return (H.onlyCustom && H.custom.length) ? H.custom : PROMPTS.concat(H.custom); }
+function pick(n, preferTwo){
+  let pool = allPrompts().filter(t => !H.used.has(t));
+  if (pool.length < n){ H.used.clear(); pool = allPrompts(); }
+  pool = shuffle(pool);
+  if (preferTwo){ const two = pool.filter(t => blanks(t) >= 2); if (two.length) pool = two; }
+  const out = pool.slice(0, n);
+  out.forEach(t => H.used.add(t));
+  while (out.length < n) out.push(shuffle(allPrompts())[0]);
+  return out;
+}
+
+/* --- flusso di gioco --- */
+function readSettings(){
+  const a = $('#setAns'), v = $('#setVote'), c = $('#custom'), o = $('#onlyCustom');
+  if (a) H.settings.answerTime = +a.value;
+  if (v) H.settings.voteTime = +v.value;
+  if (c){ H.customRaw = c.value; H.custom = parseCustom(c.value); }
+  if (o) H.onlyCustom = o.checked && H.custom.length > 0;
+}
+function startGame(){
+  if (H.players.length < 3) return;
+  readSettings();
+  H.players.forEach(p => p.score = 0);
+  H.round = 1; startRound();
+}
+function startRound(){
+  clearTimer();
+  const ids = shuffle(H.players.map(p => p.id));
+  if (H.round < 3){
+    H.matchups = pick(ids.length).map((t, i) => ({prompt:t, players:[ids[i], ids[(i+1) % ids.length]], answers:{}, votes:{}}));
+  } else {
+    H.matchups = [{prompt:pick(1, true)[0], players:ids, answers:{}, votes:{}, final:true}];
+  }
+  H.cur = -1; H.phase = 'intro';
+  renderHost(); broadcast();
+  setTimer(5, startAnswer, false);
+}
+function startAnswer(){
+  H.phase = 'answer';
+  const t = H.round < 3 ? H.settings.answerTime : Math.max(45, Math.round(H.settings.answerTime * 0.6));
+  setTimer(t, endAnswer);
+  renderHost(); broadcast();
+}
+function endAnswer(){ clearTimer(); H.phase = 'switch'; H.cur = -1; nextMatch(); }
+function nextMatch(){
+  clearTimer();
+  H.cur++;
+  if (H.cur >= H.matchups.length) return H.round >= 3 ? endGame() : showScores();
+  const m = cur();
+  const ans = answered(m);
+  if (ans.length === 0) return nextMatch();
+  if (ans.length === 1){ m.forfeit = ans[0]; return reveal(m); }
+  if (!m.final && norm(m.answers[ans[0]].join(' ')) === norm(m.answers[ans[1]].join(' '))){ m.jinx = true; return reveal(m); }
+  H.phase = 'vote';
+  setTimer(m.final ? H.settings.voteTime + 10 : H.settings.voteTime, endVote);
+  renderHost(); broadcast();
+}
+function endVote(){ reveal(cur()); }
+function reveal(m){
+  clearTimer(); score(m);
+  H.phase = 'reveal';
+  renderHost(); broadcast();
+  setTimer(m.final ? 15 : 9, nextMatch, false);
+}
+function score(m){
+  if (m.scored) return; m.scored = true;
+  const R = {};
+  m.players.forEach(id => R[id] = {votes:0, pts:0, voters:[]});
+  Object.entries(m.votes).forEach(([v, c]) => { if (R[c]){ R[c].votes++; const vp = byId(v); R[c].voters.push(vp ? vp.name : '?'); } });
+  const total = Object.keys(m.votes).length;
+  if (m.final){
+    Object.values(R).forEach(r => r.pts = r.votes * 500);
+    if (m.forfeit) R[m.forfeit].pts = 1000;
+  } else {
+    const base = 1000 * H.round;
+    if (m.forfeit) R[m.forfeit].pts = base;
+    else if (m.jinx) {}
+    else if (total === 0){ m.novotes = true; m.players.forEach(id => R[id].pts = Math.round(base/2)); }
+    else {
+      m.players.forEach(id => R[id].pts = Math.round(base * R[id].votes / total));
+      const w = m.players.find(id => R[id].votes === total);
+      if (w){ R[w].pts += 250 * H.round; m.cappotto = w; }
+    }
+  }
+  m.R = R;
+  Object.entries(R).forEach(([id, r]) => { const p = byId(id); if (p) p.score += r.pts; });
+}
+function isWinner(m, id){
+  if (!m.R) return false;
+  if (m.forfeit) return id === m.forfeit;
+  if (m.jinx) return false;
+  const max = Math.max(...Object.values(m.R).map(r => r.votes));
+  return max > 0 && m.R[id].votes === max;
+}
+function showScores(){ clearTimer(); H.phase = 'scores'; renderHost(); broadcast(); }
+function endGame(){ clearTimer(); H.phase = 'end'; renderHost(); broadcast(); }
+function nextRound(){ H.round++; startRound(); }
+function playAgain(){
+  clearTimer();
+  H.players = H.players.filter(p => p.connected);
+  H.players.forEach(p => p.score = 0);
+  H.round = 0; H.matchups = []; H.cur = -1; H.phase = 'lobby';
+  renderHost(true); broadcast();
+}
+
+/* --- viste dei telefoni (calcolate dall'host) --- */
+function viewFor(p){
+  const v = {name:p.name, score:p.score, color:p.color,
+             left: H.timerEnd ? Math.max(0, H.timerEnd - Date.now()) : 0, total: H.timerTotal};
+  const W = (emoji, title, msg) => Object.assign(v, {type:'wait', emoji, title, msg});
+  switch (H.phase){
+    case 'lobby': return W('🎉', 'Sei dentro!', 'Aspetta che entrino tutti e che si inizi la partita.');
+    case 'intro': return W('🔥', H.round < 3 ? 'Round ' + H.round : 'Round finale', 'Preparati: stanno arrivando le frasi!');
+    case 'answer': {
+      const mine = H.matchups.map((m, i) => ({m, i})).filter(x => x.m.players.includes(p.id));
+      const todo = mine.filter(x => !x.m.answers[p.id]);
+      if (!todo.length) return W('✅', 'Fatto!', 'Aspetta che finiscano gli altri…');
+      return Object.assign(v, {type:'answer', prompts: todo.map(x => ({mid:x.i, text:x.m.prompt})), done: mine.length - todo.length, tot: mine.length});
+    }
+    case 'vote': {
+      const m = cur();
+      if (!canVote(p, m)) return W('🥊', 'È la tua sfida!', 'Gli altri stanno votando. Incrocia le dita.');
+      if (m.votes[p.id]) return W('🗳️', 'Voto registrato', 'Vediamo chi vince…');
+      const opts = answered(m).filter(id => id !== p.id).map(id => ({id, parts: m.answers[id]}));
+      return Object.assign(v, {type:'vote', prompt:m.prompt, options:opts});
+    }
+    case 'reveal': {
+      const m = cur(); const r = m.R && m.R[p.id];
+      if (!r) return W('👀', 'Guarda lo schermo!', 'Ecco i risultati.');
+      return W(r.pts > 0 ? '🤑' : '😬', r.pts > 0 ? '+' + r.pts + ' punti!' : 'Zero punti…', 'Guarda lo schermo per i dettagli.');
+    }
+    case 'scores': return W('📊', 'Sei ' + rank(p) + '°', `Hai ${p.score} punti. Guarda la classifica sullo schermo.`);
+    case 'end': { const rk = rank(p); return W(rk === 1 ? '🏆' : '🎤', rk === 1 ? 'Hai vinto!' : 'Posizione finale: ' + rk + '°', `Punteggio finale: ${p.score}`); }
+    default: return W('👀', 'Guarda lo schermo!', '');
+  }
+}
+function sendView(p){ if (p.connected) send(p.conn, {t:'view', v:viewFor(p)}); }
+function broadcast(){ H.players.forEach(sendView); }
+
+/* --- rendering dello schermo host --- */
+let lastKey = '';
+const VIEW = {}, UPD = {};
+function renderHost(force){
+  if (MODE !== 'host') return;
+  const key = H.phase + '|' + H.round + '|' + H.cur;
+  if (!force && key === lastKey && UPD[H.phase]){ UPD[H.phase](); return; }
+  lastKey = key;
+  (VIEW[H.phase] || (() => {}))();
+}
+const chip = (p, extra = '', off = !p.connected) =>
+  `<span class="chip ${off ? 'off' : ''}" style="background:${p.color}">${esc(p.name)}${extra ? ' ' + extra : ''}</span>`;
+const roundLabel = () => H.round < 3 ? 'Round ' + H.round + ' di 3' : 'Round finale';
+const hdr = () => `<div class="hdr"><span class="pill">${roundLabel()}</span><span class="pill">Stanza ${H.code}</span></div>`;
+const joinUrl = () => location.origin + location.pathname + '?room=' + H.code;
+
+VIEW.lobby = () => {
+  const url = joinUrl();
+  const opt = (vals, cur) => vals.map(v => `<option value="${v}" ${v === cur ? 'selected' : ''}>${v} secondi</option>`).join('');
+  app.innerHTML = `<div class="screen host"><div class="lobby">
+    <div class="lobbyL">
+      <h1 class="logo sm">TAPPA<span>BUCHI</span></h1>
+      <p class="lead" style="margin:0">Entra dal telefono: inquadra il QR o apri questo sito e inserisci il codice.</p>
+      <div class="joinbox">
+        <div id="qr"></div>
+        <div><div class="muted">Codice stanza</div><div class="code">${H.code}</div><div class="url">${esc(url)}</div></div>
+      </div>
+      <h3>Giocatori <span id="pcount" class="muted"></span></h3>
+      <div id="plist" class="chips" style="justify-content:flex-start"></div>
+      <button class="btn big" id="startBtn">Inizia</button>
+      <p class="muted small">Da 3 a 10 giocatori. Tieni aperta questa pagina: è lei che gestisce la partita.</p>
+    </div>
+    <div class="lobbyR card">
+      <h3>Impostazioni</h3>
+      <label>Tempo per rispondere<select id="setAns">${opt([60,90,120,150], H.settings.answerTime)}</select></label>
+      <label>Tempo per votare<select id="setVote">${opt([15,20,30], H.settings.voteTime)}</select></label>
+      <label>I tuoi prompt (uno per riga, scrivi ___ per ogni buco)
+        <textarea id="custom" rows="6" placeholder="Il peggior regalo per ___ è ___">${esc(H.customRaw)}</textarea></label>
+      <label class="check"><input type="checkbox" id="onlyCustom" ${H.onlyCustom ? 'checked' : ''}> Usa solo i miei prompt</label>
+    </div>
+  </div></div>`;
+  const qr = $('#qr');
+  if (typeof QRCode !== 'undefined' && location.protocol.startsWith('http')){
+    try { new QRCode(qr, {text:url, width:160, height:160, colorDark:'#1b0f3b', colorLight:'#ffffff'}); } catch(e){ qr.remove(); }
+  } else qr.remove();
+  $('#startBtn').onclick = startGame;
+  UPD.lobby();
+};
+UPD.lobby = () => {
+  $('#pcount').textContent = `(${H.players.length}/10)`;
+  $('#plist').innerHTML = H.players.length ? H.players.map(p => chip(p)).join('') : '<span class="muted">In attesa dei giocatori…</span>';
+  const b = $('#startBtn'), miss = 3 - H.players.length;
+  b.disabled = miss > 0;
+  b.textContent = miss > 0 ? (miss === 1 ? 'Serve ancora 1 giocatore' : `Servono ancora ${miss} giocatori`) : 'Inizia la partita!';
+};
+
+VIEW.intro = () => {
+  const sub = H.round === 1 ? 'Ogni sfida vale 1000 punti, divisi in base ai voti. Prendi tutti i voti e fai CAPPOTTO: bonus!'
+            : H.round === 2 ? 'Punti doppi! Ogni sfida vale 2000.'
+            : 'Una sola frase per tutti. Ogni voto vale 500 punti.';
+  app.innerHTML = `<div class="screen host center">
+    <div class="banner" style="font-size:clamp(56px,10vw,140px)">${H.round < 3 ? 'ROUND ' + H.round : 'ROUND FINALE'}</div>
+    <p class="lead">${sub}</p></div>`;
+};
+UPD.intro = () => {};
+
+VIEW.answer = () => {
+  app.innerHTML = `<div class="screen host center">${hdr()}
+    <div class="grow">
+      <h2 class="huge">${H.round < 3 ? 'Prendi il telefono!' : 'Frase finale!'}</h2>
+      <p class="lead">${H.round < 3
+        ? 'Hai 2 frasi da completare. Ogni frase ce l\'ha anche un altro giocatore: sii più divertente di lui.'
+        : 'Tutti rispondono alla stessa frase. Poi si vota la migliore (non puoi votare la tua).'}</p>
+      ${H.round === 3 ? `<div class="prompt big">${fill(cur0().prompt)}</div>` : ''}
+      ${timerHTML()}
+      <div id="astatus" class="chips"></div>
+    </div>
+    <button class="btn small ghost" id="skip">Chiudi le risposte</button></div>`;
+  $('#skip').onclick = endAnswer;
+  UPD.answer();
+};
+const cur0 = () => H.matchups[0];
+UPD.answer = () => {
+  $('#astatus').innerHTML = H.players.map(p => {
+    const done = H.matchups.every(m => !m.players.includes(p.id) || m.answers[p.id]);
+    return chip(p, done ? '✓' : '✍️');
+  }).join('');
+};
+
+function card(m, id, rev, i){
+  const p = byId(id), r = m.R && m.R[id];
+  const color = p ? p.color : '#fff';
+  return `<div class="acard ${rev && isWinner(m, id) ? 'win' : ''}" style="--c:${color};animation-delay:${i*0.15}s">
+    <div>${fill(m.prompt, m.answers[id])}</div>
+    ${rev && r ? `<div class="ameta">
+      <span class="aname" style="background:${color}">${esc(p ? p.name : '?')}</span>
+      <span class="votes">${r.votes} vot${r.votes === 1 ? 'o' : 'i'}</span>
+      <span class="pts">+${r.pts}</span>
+      ${r.voters.length ? `<div class="voters">Votato da: ${r.voters.map(esc).join(', ')}</div>` : ''}
+    </div>` : ''}
+  </div>`;
+}
+function cardsHTML(m, ids, rev){
+  if (m.final) return `<div class="grid">${ids.map((id, i) => card(m, id, rev, i)).join('')}</div>`;
+  if (ids.length === 2) return `<div class="vs">${card(m, ids[0], rev, 0)}<div class="vsbadge">VS</div>${card(m, ids[1], rev, 1)}</div>`;
+  return `<div class="vs one">${card(m, ids[0], rev, 0)}</div>`;
+}
+
+VIEW.vote = () => {
+  const m = cur();
+  app.innerHTML = `<div class="screen host">${hdr()}
+    <div class="prompt big">${fill(m.prompt)}</div>
+    ${cardsHTML(m, answered(m), false)}
+    <p class="lead" style="text-align:center">Votate dal telefono la risposta migliore!</p>
+    ${timerHTML()}
+    <div class="row between"><span id="vstatus" class="muted"></span><button class="btn small ghost" id="skip">Chiudi la votazione</button></div>
+  </div>`;
+  $('#skip').onclick = endVote;
+  UPD.vote();
+};
+UPD.vote = () => {
+  const m = cur();
+  $('#vstatus').textContent = `${Object.keys(m.votes).length}/${elig(m).filter(p => p.connected).length} hanno votato`;
+};
+
+VIEW.reveal = () => {
+  const m = cur();
+  let ids = answered(m);
+  if (m.final) ids = ids.slice().sort((a, b) => m.R[b].votes - m.R[a].votes);
+  let banner = '';
+  if (m.cappotto) banner = `CAPPOTTO! +${250*H.round} bonus a ${esc(byId(m.cappotto).name)}`;
+  else if (m.jinx) banner = 'Stessa risposta! Zero punti 🙈';
+  else if (m.forfeit) banner = 'Vittoria a tavolino!';
+  else if (m.novotes) banner = 'Nessun voto: punti divisi';
+  else if (m.final) banner = '🏆 Il verdetto';
+  app.innerHTML = `<div class="screen host">${hdr()}
+    <div class="prompt big">${fill(m.prompt)}</div>
+    ${banner ? `<div class="banner">${banner}</div>` : ''}
+    ${cardsHTML(m, ids, true)}
+    <div class="row"><button class="btn" id="next">Avanti ▶</button></div>
+  </div>`;
+  $('#next').onclick = nextMatch;
+};
+UPD.reveal = () => {};
+
+function boardHTML(){
+  const s = sorted(), max = Math.max(1, ...s.map(p => p.score));
+  return `<div class="board">${s.map((p, i) => `<div class="brow" style="animation-delay:${i*0.08}s">
+    <span>${rank(p)}.</span><span>${esc(p.name)}</span>
+    <div class="bbar"><div style="width:${p.score/max*100}%;background:${p.color}"></div></div>
+    <span class="bpts">${p.score}</span></div>`).join('')}</div>`;
+}
+VIEW.scores = () => {
+  app.innerHTML = `<div class="screen host center">${hdr()}
+    <h2 class="huge">Classifica</h2>${boardHTML()}
+    <button class="btn big" id="nx">${H.round === 1 ? 'Inizia il round 2' : 'Inizia il round finale'}</button></div>`;
+  $('#nx').onclick = nextRound;
+};
+UPD.scores = () => {};
+
+VIEW.end = () => {
+  const s = sorted(), top = s.filter(p => p.score === s[0].score);
+  app.innerHTML = `<div class="screen host center">
+    <div class="banner" style="font-size:clamp(40px,7vw,96px)">${top.length > 1 ? 'Pareggio!' : '🏆 ' + esc(top[0].name) + ' vince!'}</div>
+    ${boardHTML()}
+    <button class="btn big" id="again">Nuova partita</button>
+    <p class="muted small">I giocatori restano nella stanza.</p></div>`;
+  $('#again').onclick = playAgain;
+};
+UPD.end = () => {};
+
+/* ===================== GIOCATORE (TELEFONO) ===================== */
+const P = {peer:null, conn:null, name:'', code:'', joined:false, lastKey:'', localEnd:0, total:0};
+
+function joinScreen(err){
+  MODE = 'player'; window.onbeforeunload = null;
+  const qs = new URLSearchParams(location.search);
+  const code = (qs.get('room') || P.code || load('tb_code') || '').toUpperCase();
+  const name = P.name || load('tb_name');
+  app.innerHTML = `<div class="screen phone center">
+    <h1 class="logo sm">TAPPA<span>BUCHI</span></h1>
+    <div class="card form">
+      ${err ? `<div class="err">${esc(err)}</div>` : ''}
+      <label>Codice stanza<input id="jcode" maxlength="4" autocomplete="off" autocapitalize="characters" value="${esc(code)}" placeholder="ABCD"></label>
+      <label>Il tuo nome<input id="jname" maxlength="16" autocomplete="off" value="${esc(name)}" placeholder="Es. Pietro"></label>
+      <button class="btn big" id="jgo">Entra</button>
+    </div>
+    <button class="link" id="jback">← Indietro</button></div>`;
+  const go = () => {
+    const c = $('#jcode').value.trim().toUpperCase().replace(/[^A-Z]/g, ''), n = $('#jname').value.trim();
+    if (c.length !== 4){ $('#jcode').classList.add('shake'); setTimeout(() => $('#jcode') && $('#jcode').classList.remove('shake'), 400); return; }
+    if (!n){ $('#jname').classList.add('shake'); setTimeout(() => $('#jname') && $('#jname').classList.remove('shake'), 400); return; }
+    P.code = c; P.name = n; store('tb_code', c); store('tb_name', n);
+    connect();
+  };
+  $('#jgo').onclick = go;
+  $('#jname').onkeydown = e => { if (e.key === 'Enter') go(); };
+  $('#jback').onclick = () => { cleanupPlayer(); history.replaceState(null, '', location.pathname); home(); };
+  if (!code) $('#jcode').focus(); else if (!name) $('#jname').focus();
+}
+
+function cleanupPlayer(){
+  const pe = P.peer;
+  P.conn = null; P.peer = null; P.joined = false; P.lastKey = '';
+  if (pe) try { pe.destroy(); } catch(e){}
+}
+
+function connect(){
+  if (typeof Peer === 'undefined') return joinScreen('Impossibile caricare la libreria di rete.');
+  cleanupPlayer();
+  app.innerHTML = spinner('Mi collego alla stanza ' + P.code + '…');
+  const peer = new Peer(); P.peer = peer;
+  const to = setTimeout(() => { if (P.peer === peer && !P.joined){ cleanupPlayer(); joinScreen('Non riesco a collegarmi. Controlla il codice e riprova.'); } }, 15000);
+  peer.on('open', () => {
+    if (P.peer !== peer) return;
+    const conn = peer.connect(PREFIX + P.code, {reliable:true}); P.conn = conn;
+    conn.on('open', () => conn.send({t:'join', name:P.name}));
+    conn.on('data', d => playerMsg(d, to));
+    conn.on('close', () => { if (P.conn === conn) lostConn(); });
+  });
+  peer.on('disconnected', () => { try { if (P.peer === peer) peer.reconnect(); } catch(e){} });
+  peer.on('error', e => {
+    if (P.peer !== peer) return;
+    clearTimeout(to);
+    if (e.type === 'peer-unavailable'){ cleanupPlayer(); joinScreen(P.joined ? 'La stanza è stata chiusa.' : 'Stanza non trovata. Controlla il codice.'); }
+    else if (!P.joined){ cleanupPlayer(); joinScreen('Errore di connessione (' + e.type + '). Riprova.'); }
+  });
+}
+
+function lostConn(){
+  if (MODE !== 'player') return;
+  cleanupPlayer();
+  app.innerHTML = `<div class="screen phone center"><div class="emoji">📡</div><h2>Connessione persa</h2>
+    <p class="lead">Rientra con lo stesso nome: riprendi da dove eri.</p>
+    <button class="btn big" id="rc">Riconnetti</button><button class="link" id="ch">Cambia stanza o nome</button></div>`;
+  $('#rc').onclick = connect;
+  $('#ch').onclick = () => joinScreen();
+}
+
+function playerMsg(d, to){
+  if (!d || typeof d !== 'object') return;
+  if (d.t === 'err'){ clearTimeout(to); cleanupPlayer(); return joinScreen(d.msg); }
+  if (d.t === 'joined'){ clearTimeout(to); P.joined = true; P.name = d.name; return; }
+  if (d.t === 'view') renderPlayer(d.v);
+}
+
+function renderPlayer(v){
+  P.localEnd = v.left ? Date.now() + v.left : 0; P.total = v.total || 0;
+  const key = JSON.stringify(Object.assign({}, v, {left:0}));
+  if (key === P.lastKey) return;
+  P.lastKey = key;
+  const top = `<div class="ptop"><span class="dot" style="background:${v.color}"></span><b>${esc(v.name)}</b><span class="pscore">${v.score} pt</span></div>`;
+  let body = '';
+  if (v.type === 'wait'){
+    body = `<div class="grow"><div class="emoji">${v.emoji || '👀'}</div><h2 style="font-size:28px">${esc(v.title)}</h2><p class="lead">${esc(v.msg || '')}</p></div>`;
+  } else if (v.type === 'answer'){
+    const q = v.prompts[0], n = Math.max(1, blanks(q.text));
+    body = `${timerHTML()}
+      <div class="muted small">Frase ${v.done + 1} di ${v.tot}</div>
+      <div class="card"><div class="prompt" id="prev">${fill(q.text)}</div></div>
+      <div class="inputs">${Array.from({length:n}, (_, i) =>
+        `<input class="ans" maxlength="45" autocomplete="off" enterkeyhint="${i === n-1 ? 'send' : 'next'}" placeholder="${n > 1 ? 'Buco ' + (i+1) : 'La tua risposta'}">`).join('')}</div>
+      <button class="btn big" id="sendA">Invia</button>`;
+  } else if (v.type === 'vote'){
+    body = `${timerHTML()}<h2>Quale ti fa più ridere?</h2>
+      <div class="opts">${v.options.map(o => `<button class="opt" data-id="${esc(o.id)}">${fill(v.prompt, o.parts)}</button>`).join('')}</div>`;
+  }
+  app.innerHTML = `<div class="screen phone">${top}${body}</div>`;
+
+  if (v.type === 'answer'){
+    const q = v.prompts[0];
+    const ins = [...document.querySelectorAll('.ans')];
+    const vals = () => ins.map(i => i.value.trim());
+    ins.forEach((inp, i) => {
+      inp.oninput = () => { $('#prev').innerHTML = fill(q.text, vals()); };
+      inp.onkeydown = e => { if (e.key === 'Enter'){ e.preventDefault(); if (ins[i+1]) ins[i+1].focus(); else $('#sendA').click(); } };
+    });
+    ins[0].focus();
+    $('#sendA').onclick = () => {
+      const empty = ins.find(i => !i.value.trim());
+      if (empty){ empty.classList.add('shake'); empty.focus(); setTimeout(() => empty.classList.remove('shake'), 400); return; }
+      $('#sendA').disabled = true;
+      send(P.conn, {t:'answer', mid:q.mid, parts:vals()});
+    };
+  } else if (v.type === 'vote'){
+    document.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+      document.querySelectorAll('.opt').forEach(x => x.disabled = true);
+      b.classList.add('sel');
+      send(P.conn, {t:'vote', choice:b.dataset.id});
+    });
+  }
+}
+
+/* ===================== TIMER VISIVO ===================== */
+setInterval(() => {
+  const num = document.getElementById('tnum'); if (!num) return;
+  const end = MODE === 'host' ? H.timerEnd : P.localEnd;
+  const total = MODE === 'host' ? H.timerTotal : P.total;
+  const bar = document.getElementById('tbar');
+  if (!end){ num.textContent = ''; if (bar) bar.style.width = '0%'; return; }
+  const left = Math.max(0, end - Date.now());
+  num.textContent = Math.ceil(left / 1000);
+  if (bar) bar.style.width = (total ? left / total * 100 : 0) + '%';
+}, 200);
+
+/* ===================== AVVIO ===================== */
+if (new URLSearchParams(location.search).get('room')) joinScreen(); else home();
+</script>
+</body>
+</html>
